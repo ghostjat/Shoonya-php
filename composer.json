@@ -1,5 +1,5 @@
 {
-    "name": "ghostjat/Shoonya-php",
+    "name": "ghostjat/shoonya-php",
     "description": "A php wrapper or connector to the Shoonya-API and websocket.",
     "type": "library",
     "keywords": ["php","ShoonyaApi","Api","Trading","NSE","BSE","NFO","Finvasia","Stock","Indian"],
