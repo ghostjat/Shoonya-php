@@ -3,10 +3,11 @@
 namespace Core\Api;
 
 use GuzzleHttp\Client;
+use ErrorException;
 
 class Shoonya {
 
-    protected $guzzle, $jKey, $userName, $accountId, $pwd, $uid;
+    protected $guzzle, $jKey, $userName, $accountId, $pwd, $uid,$exarr,$brkname,$email;
     protected $cred,$orderNo = [];
     protected const Delivery = 'C', Intraday = 'I', Normal = 'M', CF = 'M';
 
@@ -56,15 +57,12 @@ class Shoonya {
     public function login():bool {
         $this->cred['pwd'] = hash('sha256', utf8_encode($this->cred['pwd']));
         $this->cred['appkey'] = hash('sha256', utf8_encode($this->cred['uid'] . '|' . $this->cred['appkey']));
-        $request = $this->post($this->urls['endpoint'], $this->routes['login'], $this->jData($this->cred));
+        $request = $this->post($this->routes['login'], $this->jData($this->cred),false);
         $decode = $this->decode($request->getBody());
         if ($decode->stat != 'Ok') {
-            throw new ErrorException($decode->emsg, $request->getStatusCode(), 'LoginError');
+            throw new ErrorException($decode->emsg .  'LoginError', $request->getStatusCode());
         }
-        $this->jKey = $decode->susertoken;
-        $this->userName = $decode->actid;
-        $this->accountId = $decode->actid;
-        $this->uid = $this->cred['uid'];
+        $this->sessionData($decode);
         return true;
     }
 
@@ -74,11 +72,10 @@ class Shoonya {
      * @throws ErrorException
      */
     public function logout() :bool {
-        $body = $this->jData(['ordersource' => 'API', 'uid' => $this->uid]) . $this->jKey();
-        $request = $this->post($this->urls['endpoint'], $this->routes['logout'], $body);
+        $request = $this->post($this->routes['logout'], $this->jData(['ordersource' => 'API', 'uid' => $this->uid]));
         $decode = $this->decode($request->getBody());
         if ($decode->stat != 'Ok') {
-            throw new ErrorException($decode->emsg, $request->getStatusCode(), 'LogoutError');
+            throw new ErrorException($decode->emsg .  'LogoutError', $request->getStatusCode());
         }
         $this->jKey = null;
         $this->userName = null;
@@ -105,12 +102,35 @@ class Shoonya {
             'stext' => ($searchtext) // urllib . parse . quote_plus
         ];
 
-        $body = $this->jData($values) . $this->jKey();
-
-        $request = $this->post($this->urls['endpoint'], $this->routes['searchscrip'], $body);
+        $request = $this->post($this->routes['searchscrip'], $this->jData($values));
         $decode = $this->decode($request->getBody());
         if ($decode->stat != 'Ok') {
-            throw new ErrorException($decode->emsg, $request->getStatusCode(), 'ScripSearch-Error');
+            throw new ErrorException($decode->emsg . 'ScripSearch-Error' , $request->getStatusCode());
+        }
+        return $decode->values;
+    }
+    
+    /**
+     * 
+     * @param string $token
+     * @param string $exchange
+     * @return array
+     * @throws ErrorException
+     */
+    public function getQuotes(string $token, string $exchange ='BSE' ) : array{
+        if ($token == null) {
+            throw new ErrorException('token text cannot be null');
+        }
+        $values = [
+            'uid'=> $this->accountId,
+            'exch'=>$exchange,
+            'token'=>$token
+        ];
+        
+        $request = $this->post($this->routes['getquotes'], $this->jData($values));
+        $decode = $this->decode($request->getBody());
+        if($decode->stat != 'Ok') {
+            throw new ErrorException($decode->emsg . 'getQuotes-Error', $request->getStatusCode());
         }
         return $decode->values;
     }
@@ -124,16 +144,14 @@ class Shoonya {
     public function getHoldings($productType = self::Delivery):array {
 
         $values = [
-            'uid ' => $this->userName,
+            'uid ' => $this->accountId,
             'actid' => $this->accountId,
             'prd' => $productType
         ];
-        
-        $body = $this->jData($values) . $this->jKey();
-        $request = $this->post($this->urls['endpoint'], $this->routes['holdings'], $body);
+        $request = $this->post($this->routes['holdings'], $this->jData($values));
         $decode = $this->decode($request->getBody());
         if ($decode->stat != 'Ok') {
-            throw new ErrorException($decode->emsg, $request->getStatusCode(), 'GetHolding-Error');
+            throw new ErrorException($decode->emsg . 'GetHolding-Error', $request->getStatusCode());
         }
         return $decode;
     }
@@ -145,14 +163,13 @@ class Shoonya {
      */
     public function getPositions():array{
         $values = [
-            'uid ' => $this->userName,
+            'uid ' => $this->accountId,
             'actid' => $this->accountId
         ];
-        $body = $this->jData($values).$this->jKey();
-        $request = $this->post($this->urls['endpoint'], $this->routes['positions'], $body);
+        $request = $this->post($this->routes['positions'], $this->jData($values));
         $decode = $this->decode($request->getBody());
         if ($decode->stat != 'Ok') {
-            throw new ErrorException($decode->emsg, $request->getStatusCode(), 'GetPosition-Error');
+            throw new ErrorException($decode->emsg.'GetPosition-Error', $request->getStatusCode());
         }
         return $decode;
     }
@@ -198,28 +215,45 @@ class Shoonya {
             }
         }
 
-        $body = $this->jData($values) . $this->jKey();
-        $request = $this->post($this->urls['endpoint'], $this->routes['placeorder'], $body);
+        $request = $this->post($this->routes['placeorder'], $this->jData($values));
         $decode = $this->decode($request->getBody());
         if ($decode->stat != 'Ok') {
-            throw new ErrorException($decode->emsg, $request->getStatusCode(), 'OrderPlacing-Error');
+            throw new ErrorException($decode->emsg.'OrderPlacing-Error', $request->getStatusCode());
         }
         $this->orderNo[] = $decode->norenordno;
         return true;
+    }
+    
+    public function getSessionData() {
+        return ['uid'=>$this->uid,'actid'=> $this->accountId, 'uname'=>$this->userName, $this->exarr, $this->brkname];
+    }
+    
+    protected function sessionData($data) {
+        $this->jKey = $data->susertoken;
+        $this->userName = $data->uname;
+        $this->accountId = $data->actid;
+        $this->uid = $data->actid;
+        $this->exarr = $data->exarr;
+        $this->brkname = $data->brkname;
+        $this->email = $data->email;
     }
 
     protected function decode($jsonData) {
         return json_decode($jsonData);
     }
 
-    protected function post($urls, $routes, $body, $contentType = 'application/json') {
-        return $this->guzzle->post($urls . $routes, [
+    protected function post($routes, $body, $contentType = 'application/json') {
+        $url = $this->urls['endpoint'] . $routes;
+        return $this->guzzle->post($url, [
                     'header' => ['Content-Type' => $contentType],
                     'body' => $body
         ]);
     }
 
-    protected function jData($data) {
+    protected function jData($data,$isKey = true) {
+        if($isKey){
+            return 'jData=' . json_encode($data) . $this->jKey();
+        }
         return 'jData=' . json_encode($data);
     }
 
