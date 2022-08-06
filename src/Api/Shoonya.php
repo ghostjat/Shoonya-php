@@ -3,7 +3,7 @@
 namespace Core\Api;
 
 use GuzzleHttp\Client;
-use ErrorException;
+use Exception;
 
 class Shoonya {
 
@@ -52,7 +52,7 @@ class Shoonya {
     /**
      * 
      * @return bool
-     * @throws ErrorException
+     * @throws Exception
      */
     public function login():bool {
         $this->cred['pwd'] = hash('sha256', utf8_encode($this->cred['pwd']));
@@ -60,7 +60,7 @@ class Shoonya {
         $request = $this->post($this->routes['login'], $this->jData($this->cred),false);
         $decode = $this->decode($request->getBody());
         if ($decode->stat != 'Ok') {
-            throw new ErrorException($decode->emsg .  'LoginError', $request->getStatusCode());
+            throw new Exception($decode->emsg .  'LoginError', $request->getStatusCode());
         }
         $this->sessionData($decode);
         return true;
@@ -69,13 +69,13 @@ class Shoonya {
     /**
      * 
      * @return bool
-     * @throws ErrorException
+     * @throws Exception
      */
     public function logout() :bool {
         $request = $this->post($this->routes['logout'], $this->jData(['ordersource' => 'API', 'uid' => $this->uid]));
         $decode = $this->decode($request->getBody());
         if ($decode->stat != 'Ok') {
-            throw new ErrorException($decode->emsg .  'LogoutError', $request->getStatusCode());
+            throw new Exception($decode->emsg .  'LogoutError', $request->getStatusCode());
         }
         $this->jKey = null;
         $this->userName = null;
@@ -89,11 +89,11 @@ class Shoonya {
      * @param string $exchange
      * @param string $searchtext
      * @return array
-     * @throws ErrorException
+     * @throws Exception
      */
     public function searchScrip(string $exchange, string $searchtext):array {
         if ($searchtext == null) {
-            throw new ErrorException('search text cannot be null');
+            throw new Exception('search text cannot be null');
         }
 
         $values = [
@@ -105,7 +105,7 @@ class Shoonya {
         $request = $this->post($this->routes['searchscrip'], $this->jData($values));
         $decode = $this->decode($request->getBody());
         if ($decode->stat != 'Ok') {
-            throw new ErrorException($decode->emsg . 'ScripSearch-Error' , $request->getStatusCode());
+            throw new Exception($decode->emsg . 'ScripSearch-Error' , $request->getStatusCode());
         }
         return $decode->values;
     }
@@ -115,11 +115,11 @@ class Shoonya {
      * @param string $token
      * @param string $exchange
      * @return array
-     * @throws ErrorException
+     * @throws Exception
      */
     public function getQuotes(string $token, string $exchange ='BSE' ) : array{
         if ($token == null) {
-            throw new ErrorException('token text cannot be null');
+            throw new Exception('token text cannot be null');
         }
         $values = [
             'uid'=> $this->accountId,
@@ -130,7 +130,7 @@ class Shoonya {
         $request = $this->post($this->routes['getquotes'], $this->jData($values));
         $decode = $this->decode($request->getBody());
         if($decode->stat != 'Ok') {
-            throw new ErrorException($decode->emsg . 'getQuotes-Error', $request->getStatusCode());
+            throw new Exception($decode->emsg . 'getQuotes-Error', $request->getStatusCode());
         }
         return $decode->values;
     }
@@ -139,7 +139,7 @@ class Shoonya {
      * 
      * @param string $productType
      * @return array
-     * @throws ErrorException
+     * @throws Exception
      */
     public function getHoldings($productType = self::Delivery):array {
 
@@ -151,7 +151,7 @@ class Shoonya {
         $request = $this->post($this->routes['holdings'], $this->jData($values));
         $decode = $this->decode($request->getBody());
         if ($decode->stat != 'Ok') {
-            throw new ErrorException($decode->emsg . 'GetHolding-Error', $request->getStatusCode());
+            throw new Exception($decode->emsg . 'GetHolding-Error', $request->getStatusCode());
         }
         return $decode;
     }
@@ -159,7 +159,7 @@ class Shoonya {
     /**
      * 
      * @return array
-     * @throws ErrorException
+     * @throws Exception
      */
     public function getPositions():array{
         $values = [
@@ -169,7 +169,7 @@ class Shoonya {
         $request = $this->post($this->routes['positions'], $this->jData($values));
         $decode = $this->decode($request->getBody());
         if ($decode->stat != 'Ok') {
-            throw new ErrorException($decode->emsg.'GetPosition-Error', $request->getStatusCode());
+            throw new Exception($decode->emsg.'GetPosition-Error', $request->getStatusCode());
         }
         return $decode;
     }
@@ -218,7 +218,7 @@ class Shoonya {
         $request = $this->post($this->routes['placeorder'], $this->jData($values));
         $decode = $this->decode($request->getBody());
         if ($decode->stat != 'Ok') {
-            throw new ErrorException($decode->emsg.'OrderPlacing-Error', $request->getStatusCode());
+            throw new Exception($decode->emsg.'OrderPlacing-Error', $request->getStatusCode());
         }
         $this->orderNo[] = $decode->norenordno;
         return true;
