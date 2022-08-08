@@ -10,7 +10,10 @@ class Shoonya {
     protected $guzzle, $jKey, $userName, $accountId, $pwd, $uid,$exarr,$brkname,$email;
     protected $cred,$orderNo = [];
     protected const Delivery = 'C', Intraday = 'I', Normal = 'M', CF = 'M';
-
+    protected const FeedTouchLine = 1,FeedSnapQuoate=2;
+    protected const PriceMarket = 'MKT', PriceLimit = 'LMT', PrinceSLLmit = 'SL-LMT', PriceSLM = 'SL-MKT';
+    Protected const Buy = 'B', Sell = 'S';
+    
     protected $urls = [
         'host' => 'https://shoonyatrade.finvasia.com/',
         'websocket_endpoint' => 'wss://shoonyatrade.finvasia.com/NorenWSTP',
@@ -99,7 +102,7 @@ class Shoonya {
         $values = [
             'uid' => $this->uid,
             'exch' => $exchange,
-            'stext' => ($searchtext) // urllib . parse . quote_plus
+            'stext' => $searchtext // urllib . parse . quote_plus
         ];
 
         $request = $this->post($this->routes['searchscrip'], $this->jData($values));
@@ -112,19 +115,47 @@ class Shoonya {
     
     /**
      * 
+     * @param string $prd
+     * @param string $seg
+     * @param string $exch
+     * @return type
+     */
+    public function getLimits($prd=null,$seg=null,$exch=null) {
+        $values = [
+            'uid' => $this->uid,
+            'actid' => $this->accountId
+        ];
+        
+        if(!is_null($prd)){
+            $values['prd'] = $prd;
+        }
+        if(!is_null($seg)) {
+            $values['seg'] = $seg;
+        }
+        if(!is_null($exch)){
+            $values['exch'] = $exch;
+        }
+        $request = $this->post($this->routes['limits'], $this->jData($values));
+        $decode = $this->decode($request->getBody());
+        return $decode;
+    }
+    
+    /**
+     * 
      * @param string $token
      * @param string $exchange
      * @return array
      * @throws Exception
      */
-    public function getQuotes(string $token, string $exchange ='BSE' ) : array{
+    public function getQuotes(string $token, string $exchange ='BSE' ){
         if ($token == null) {
             throw new Exception('token text cannot be null');
         }
+        $tkNum = parse_ini_file('scrip/bse.ini');
         $values = [
             'uid'=> $this->accountId,
             'exch'=>$exchange,
-            'token'=>$token
+            'token'=>$tkNum[$token]
         ];
         
         $request = $this->post($this->routes['getquotes'], $this->jData($values));
@@ -132,45 +163,91 @@ class Shoonya {
         if($decode->stat != 'Ok') {
             throw new Exception($decode->emsg . 'getQuotes-Error', $request->getStatusCode());
         }
-        return $decode->values;
-    }
-
-    /**
-     * 
-     * @param string $productType
-     * @return array
-     * @throws Exception
-     */
-    public function getHoldings($productType = self::Delivery):array {
-
-        $values = [
-            'uid ' => $this->accountId,
-            'actid' => $this->accountId,
-            'prd' => $productType
-        ];
-        $request = $this->post($this->routes['holdings'], $this->jData($values));
-        $decode = $this->decode($request->getBody());
-        if ($decode->stat != 'Ok') {
-            throw new Exception($decode->emsg . 'GetHolding-Error', $request->getStatusCode());
-        }
         return $decode;
     }
     
     /**
      * 
+     * @param string $token
+     * @param string $startTime d-m-Y
+     * @param string $endTime
+     * @param string $interval 1, 3, 5 , 10, 15, 30, 60, 120, 240
+     * @param string $exch
+     */
+    public function getTimePriceSeries(string $token,string $startTime = null, string $endTime=null, string $interval='240', string $exch='BSE') {
+        $tkNum = parse_ini_file('scrip/bse.ini');
+        if(is_null($startTime)) {
+            $startTime = (string)strtotime(date('d-m-Y'));
+        }
+        else{
+            $startTime = (string)strtotime($startTime);
+        }
+        
+        $values = [
+            'uid'=> $this->accountId,
+            'exch'=>$exch,
+            'token'=>$tkNum[$token],
+            'st'=> $startTime
+        ];
+        if(!is_null($endTime)) {
+            $values['et'] = (string)strtotime($endTime);
+        }
+        if(!is_null($interval)) {
+            $values['intrv'] = (string) $interval;
+        }
+        $request = $this->post($this->routes['TPSeries'], $this->jData($values));
+        $decode = $this->decode($request->getBody());
+        return $decode;
+    }
+
+
+    /**
+     * 
      * @return array
+     */
+    public function getOrderbook():array {
+        $values = ['uid'=> $this->uid];
+        $request = $this->post($this->routes['orderbook'], $this->jData($values));
+        $decode = $this->decode($request->getBody());
+        return $decode;
+    }
+    public function getTradebook() {
+        $values = ['uid'=> $this->uid,'actid'=> $this->accountId];
+        $request = $this->post($this->routes['tradebook'], $this->jData($values));
+        $decode = $this->decode($request->getBody());
+        return $decode;
+    }
+
+    /**
+     * 
+     * @param string $productType
+     * @return array | stdClass
      * @throws Exception
      */
-    public function getPositions():array{
+    public function getHoldings($productType = self::Delivery) {
+
         $values = [
-            'uid ' => $this->accountId,
+            'uid' => $this->uid,
+            'actid' => $this->accountId,
+            'prd' => $productType
+        ];
+        $request = $this->post($this->routes['holdings'], $this->jData($values));
+        $decode = $this->decode($request->getBody());
+        return $decode;
+    }
+    
+    /**
+     * 
+     * @return array | stdClass
+     * @throws Exception
+     */
+    public function getPositions() {
+        $values = [
+            'uid' => $this->uid,
             'actid' => $this->accountId
         ];
         $request = $this->post($this->routes['positions'], $this->jData($values));
         $decode = $this->decode($request->getBody());
-        if ($decode->stat != 'Ok') {
-            throw new Exception($decode->emsg.'GetPosition-Error', $request->getStatusCode());
-        }
         return $decode;
     }
 
@@ -225,7 +302,7 @@ class Shoonya {
     }
     
     public function getSessionData() {
-        return ['uid'=>$this->uid,'actid'=> $this->accountId, 'uname'=>$this->userName, $this->exarr, $this->brkname];
+        return ['jKey' => $this->jKey,'uid'=>$this->uid,'actid'=> $this->accountId, 'uname'=>$this->userName, $this->exarr, $this->brkname];
     }
     
     protected function sessionData($data) {
@@ -252,7 +329,7 @@ class Shoonya {
 
     protected function jData($data,$isKey = true) {
         if($isKey){
-            return 'jData=' . json_encode($data) . $this->jKey();
+            return 'jData=' .json_encode($data) . $this->jKey();
         }
         return 'jData=' . json_encode($data);
     }
