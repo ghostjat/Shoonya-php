@@ -3,12 +3,12 @@
 namespace Core\Api;
 
 use GuzzleHttp\Client;
-use Exception;
+use Katzgrau\KLogger\Logger;
 
 class Shoonya {
 
     protected $guzzle, $jKey, $userName, $accountId, $pwd, $uid,$exarr,$brkname,$email;
-    protected $cred,$orderNo = [];
+    protected $cred,$logger,$orderNo = [];
     protected const Delivery = 'C', Intraday = 'I', Normal = 'M', CF = 'M';
     protected const FeedTouchLine = 1,FeedSnapQuoate=2;
     protected const PriceMarket = 'MKT', PriceLimit = 'LMT', PrinceSLLmit = 'SL-LMT', PriceSLM = 'SL-MKT';
@@ -50,67 +50,71 @@ class Shoonya {
     public function __construct() {
         $this->cred = parse_ini_file('cred.ini');
         $this->guzzle = new Client();
+        $this->logger = new Logger('log/');
     }
     
     /**
      * 
      * @return bool
-     * @throws Exception
      */
     public function login():bool {
         $this->cred['pwd'] = hash('sha256', utf8_encode($this->cred['pwd']));
         $this->cred['appkey'] = hash('sha256', utf8_encode($this->cred['uid'] . '|' . $this->cred['appkey']));
-        $request = $this->post($this->routes['login'], $this->jData($this->cred),false);
-        $decode = $this->decode($request->getBody());
-        if ($decode->stat != 'Ok') {
-            throw new Exception($decode->emsg .  'LoginError', $request->getStatusCode());
+        $req = $this->request('login', $this->cred, false);
+        if($this->log($req, ['logged in successfully!','falied to loggedin!'])){
+            $this->sessionData($req);
+            return true;
         }
-        $this->sessionData($decode);
-        return true;
+        return false;
     }
 
     /**
      * 
      * @return bool
-     * @throws Exception
      */
     public function logout() :bool {
-        $request = $this->post($this->routes['logout'], $this->jData(['ordersource' => 'API', 'uid' => $this->uid]));
-        $decode = $this->decode($request->getBody());
-        if ($decode->stat != 'Ok') {
-            throw new Exception($decode->emsg .  'LogoutError', $request->getStatusCode());
+        $req = $this->request('logout', ['ordersource' => 'API', 'uid' => $this->uid]);
+        if($this->log($req, ['logout successfully!','failed to logout!'])){
+            $this->jKey = null;
+            $this->userName = null;
+            $this->accountId = null;
+            $this->uid = null;
+            return true;
         }
-        $this->jKey = null;
-        $this->userName = null;
-        $this->accountId = null;
-        $this->uid = null;
-        return true;
+        return false;
     }
     
     /**
      * 
-     * @param string $exchange
-     * @param string $searchtext
-     * @return array
-     * @throws Exception
+     * @param string $uid
+     * @param string $pan
+     * @param string $dob
+     * @return bool
      */
-    public function searchScrip(string $exchange, string $searchtext):array {
-        if ($searchtext == null) {
-            throw new Exception('search text cannot be null');
-        }
-
+    public function forgotPassword(string $uid, string $pan, string $dob):bool {
+        $values = [
+            'source'=>'API',
+            'uid' => $uid,
+            'pan' => $pan,
+            'dob' => $dob
+        ];
+        $req = $this->request('forgot_password', $values,false);
+        return $this->log($req, ['Password Changed Successfully','Could not changed password!']);   
+    }
+    
+    /**
+     * 
+     * @param string $searchtext
+     * @param string $exchange
+     * @return array
+     */
+    public function searchScrip(string $searchtext, string $exchange ='BSE'):array {
         $values = [
             'uid' => $this->uid,
             'exch' => $exchange,
             'stext' => $searchtext // urllib . parse . quote_plus
         ];
-
-        $request = $this->post($this->routes['searchscrip'], $this->jData($values));
-        $decode = $this->decode($request->getBody());
-        if ($decode->stat != 'Ok') {
-            throw new Exception($decode->emsg . 'ScripSearch-Error' , $request->getStatusCode());
-        }
-        return $decode->values;
+        return $this->request('searchscrip', $values)->values;
     }
     
     /**
@@ -135,9 +139,33 @@ class Shoonya {
         if(!is_null($exch)){
             $values['exch'] = $exch;
         }
-        $request = $this->post($this->routes['limits'], $this->jData($values));
-        $decode = $this->decode($request->getBody());
-        return $decode;
+        return $this->request('limits', $values);
+    }
+    
+    public function getOptionChain(string $tsym, int $strprc,int $count=5, string $exch='NFO') {
+        $values = [
+            'uid'=> $this->uid,
+            'exch'=>$exch,
+            'tsym' =>$tsym,
+            'strprc' => "$strprc",
+            'cnt'=> "$count"
+        ];
+        return $this->request('optionchain', $values);
+    }
+    
+    /**
+     * 
+     * @param string $token
+     * @param string $exch
+     */
+    public function getScripInfo(string $token,string $exch='BSE') {
+        $tkNum = parse_ini_file('scrip/bse.ini');
+        $values = [
+            'uid'=> $this->uid,
+            'exch'=>$exch,
+            'token'=>$tkNum[$token]
+        ];
+        return $this->request('scripinfo', $values);
     }
     
     /**
@@ -145,25 +173,15 @@ class Shoonya {
      * @param string $token
      * @param string $exchange
      * @return array
-     * @throws Exception
      */
     public function getQuotes(string $token, string $exchange ='BSE' ){
-        if ($token == null) {
-            throw new Exception('token text cannot be null');
-        }
         $tkNum = parse_ini_file('scrip/bse.ini');
         $values = [
             'uid'=> $this->accountId,
             'exch'=>$exchange,
             'token'=>$tkNum[$token]
         ];
-        
-        $request = $this->post($this->routes['getquotes'], $this->jData($values));
-        $decode = $this->decode($request->getBody());
-        if($decode->stat != 'Ok') {
-            throw new Exception($decode->emsg . 'getQuotes-Error', $request->getStatusCode());
-        }
-        return $decode;
+        return $this->request('getquotes', $values);
     }
     
     /**
@@ -174,7 +192,7 @@ class Shoonya {
      * @param string $interval 1, 3, 5 , 10, 15, 30, 60, 120, 240
      * @param string $exch
      */
-    public function getTimePriceSeries(string $token,string $startTime = null, string $endTime=null, string $interval='240', string $exch='BSE') {
+    public function getTimePriceSeries(string $token,string $startTime = null, string $endTime=null, string $interval='15', string $exch='BSE') {
         $tkNum = parse_ini_file('scrip/bse.ini');
         if(is_null($startTime)) {
             $startTime = (string)strtotime(date('d-m-Y'));
@@ -195,60 +213,84 @@ class Shoonya {
         if(!is_null($interval)) {
             $values['intrv'] = (string) $interval;
         }
-        $request = $this->post($this->routes['TPSeries'], $this->jData($values));
+        return $this->request('TPSeries', $values);
+    }
+    
+    /**
+     * 
+     * @param string $token
+     * @param string $startDate
+     * @param string $endDate
+     * @param string $exch
+     * @return type
+     */
+    public function getDailyPriceSeries(string $token,string $startDate, string $endDate=null, string $exch='BSE') {
+        $tkNum = parse_ini_file('scrip/bse.ini');
+        if(is_null($endDate)) {
+            $et = (string) strtotime(date('d-m-Y'));
+        }else {
+            $et=  (string) strtotime($endDate);
+        }
+        $st = (string) strtotime($startDate);
+        
+        $values = [
+            'uid'=> $this->accountId,
+            'sym'=>" $exch : $tkNum[$token]" ,
+            'from'=>$st,
+            'to'=> $et
+        ];
+        $request = $this->guzzle->post($this->urls['eodhost'], [
+                    'header' => ['Content-Type' =>  'application/json'],
+                    'body' => $this->jData($values)
+        ]);
         $decode = $this->decode($request->getBody());
         return $decode;
     }
-
+    
+    public function positionProductConversion() {
+        
+    }
+    
+    /**
+     * 
+     * @param int $orderNo
+     * @return type
+     */
+    public function singleOrderHistory(int $orderNo) {
+        return $this->request('singleorderhistory', ['uid'=> $this->uid,'norenordno'=>$orderNo]);
+    }
 
     /**
      * 
      * @return array
      */
-    public function getOrderbook():array {
-        $values = ['uid'=> $this->uid];
-        $request = $this->post($this->routes['orderbook'], $this->jData($values));
-        $decode = $this->decode($request->getBody());
-        return $decode;
+    public function getOrderbook() {
+        return $this->request('orderbook', ['uid' => $this->uid]);
     }
+    
+    /**
+     * 
+     * @return type
+     */
     public function getTradebook() {
-        $values = ['uid'=> $this->uid,'actid'=> $this->accountId];
-        $request = $this->post($this->routes['tradebook'], $this->jData($values));
-        $decode = $this->decode($request->getBody());
-        return $decode;
+        return $this->request('tradebook', ['uid' => $this->uid,'actid'=> $this->accountId]);
     }
 
     /**
      * 
      * @param string $productType
      * @return array | stdClass
-     * @throws Exception
      */
     public function getHoldings($productType = self::Delivery) {
-
-        $values = [
-            'uid' => $this->uid,
-            'actid' => $this->accountId,
-            'prd' => $productType
-        ];
-        $request = $this->post($this->routes['holdings'], $this->jData($values));
-        $decode = $this->decode($request->getBody());
-        return $decode;
+        return $this->request('holdings', ['uid' => $this->uid,'actid' => $this->accountId,'prd' => $productType]);
     }
     
     /**
      * 
      * @return array | stdClass
-     * @throws Exception
      */
     public function getPositions() {
-        $values = [
-            'uid' => $this->uid,
-            'actid' => $this->accountId
-        ];
-        $request = $this->post($this->routes['positions'], $this->jData($values));
-        $decode = $this->decode($request->getBody());
-        return $decode;
+        return $this->request('positions',['uid' => $this->uid, 'actid' => $this->accountId]);
     }
 
     public function placeOrder($buy_or_sell, $productType, $exchange, $tradingSymbol, $quantity, $discloseQty,
@@ -291,14 +333,12 @@ class Shoonya {
                 $values["trailprc"] = string($trailPrice);
             }
         }
-
-        $request = $this->post($this->routes['placeorder'], $this->jData($values));
-        $decode = $this->decode($request->getBody());
-        if ($decode->stat != 'Ok') {
-            throw new Exception($decode->emsg.'OrderPlacing-Error', $request->getStatusCode());
+        $req = $this->request('placeorder', $values);
+        if($this->log($req, ["order placed, ON:- $req->norenordno", 'failed to place order!'])) {
+            $this->orderNo[] = $req->norenordno;
+            return true;
         }
-        $this->orderNo[] = $decode->norenordno;
-        return true;
+        return false;
     }
     
     public function getSessionData() {
@@ -317,6 +357,28 @@ class Shoonya {
 
     protected function decode($jsonData) {
         return json_decode($jsonData);
+    }
+    
+    /**
+     * 
+     * @param object $req
+     * @param array $msg
+     * @return boolean
+     */
+    protected function log($req,array $msg) {
+        if($req->stat == 'Ok') {
+            $this->logger->info("User {$this->cred['uid']} " . $msg[0]);
+            return true;
+        }
+        $this->logger->notice("User {$this->cred['uid']} " . $msg[1]);
+        return false ;
+    }
+
+
+    protected function request(string $routes, array $jData,$iskey=true){
+        $request = $this->post($this->routes[$routes], $this->jData($jData),$iskey);
+        $decode = $this->decode($request->getBody());
+        return $decode;
     }
 
     protected function post($routes, $body, $contentType = 'application/json') {

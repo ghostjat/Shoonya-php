@@ -26,6 +26,7 @@
     },
     "require": {
         "guzzlehttp/guzzle": "^7.0",
-        "ratchet/pawl": "^0.4.1"
+        "ratchet/pawl": "^0.4.1",
+        "katzgrau/klogger": "dev-master"
     }
 }
