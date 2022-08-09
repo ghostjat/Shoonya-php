@@ -305,11 +305,11 @@ class Shoonya {
             'prd' => $productType,
             'exch' => $exchange,
             'tsym' => ($tradingSymbol), //urllib . parse . quote_plus
-            'qty' => string($quantity),
-            'dscqty' => string($discloseQty),
+            'qty' => (string)($quantity),
+            'dscqty' => (string)($discloseQty),
             'prctyp' => $priceType,
-            'prc' => string($price),
-            'trgprc' => string($triggerPrice),
+            'prc' => (string)($price),
+            'trgprc' => (string)($triggerPrice),
             'ret' => $retention,
             'remarks' => $remarks,
             'amo' => $amo
@@ -317,20 +317,20 @@ class Shoonya {
 
         #if cover order or high leverage order
         if ($productType == 'H') {
-            $values["blprc"] = string($booklossPrice);
+            $values["blprc"] = (string)($booklossPrice);
             #trailing price
             if ($trailPrice != 0.0) {
-                $values["trailprc"] = string($trailPrice);
+                $values["trailprc"] = (string)($trailPrice);
             }
         }
 
         #bracket order
         if ($productType == 'B') {
-            $values["blprc"] = string($booklossPrice);
-            $values["bpprc"] = string($bookprofitPrice);
+            $values["blprc"] = (string)($booklossPrice);
+            $values["bpprc"] = (string)($bookprofitPrice);
             #trailing price
             if ($trailPrice != 0.0) {
-                $values["trailprc"] = string($trailPrice);
+                $values["trailprc"] = (string)($trailPrice);
             }
         }
         $req = $this->request('placeorder', $values);
