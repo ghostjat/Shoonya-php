@@ -1,6 +1,6 @@
 # A LOT OF THANKS TO:
  
- # Finavsia {@link https://prism.finvasia.com/register/?franchiseLead=OTA1ODY=}
+Finavsia https://prism.finvasia.com/register/?franchiseLead=OTA1ODY=
 
 # Shoonya-php (unofficial)
 
@@ -27,10 +27,14 @@ to install this package please use Composer
 
  @author Shubham Chaudhary
  
- @author {@link https://www.linkedin.com/in/drshubh/}
- @blog {@link https://ghostjat.medium.com}
+ @author  https://www.linkedin.com/in/drshubh/
+
+ @blog https://ghostjat.medium.com
+
  @since Aug 2022
+
  @version 1.0.0
+
  @license MIT
 
 ****
