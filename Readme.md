@@ -6,9 +6,7 @@
 ![GitHub last commit](https://img.shields.io/github/last-commit/ghostjat/Shoonya-php)
 ![Packagist Version](https://img.shields.io/packagist/v/ghostjat/Shoonya-php)
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/ghostjat/Shoonya-php)
-![Lines of code](https://img.shields.io/tokei/lines/github/ghostjat/Shoonya-php)
 ![GitHub top language](https://img.shields.io/github/languages/top/ghostjat/Shoonya-php)
-[![Lines of code](https://tokei.rs/b1/github/ghostjat/Shoonya-php?category=lines)](https://github/ghostjat/Shoonya-php).
 
 # A LOT OF THANKS TO:
  
