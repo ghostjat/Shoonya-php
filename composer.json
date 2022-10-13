@@ -2,7 +2,7 @@
     "name": "ghostjat/shoonya-php",
     "description": "A php wrapper or connector to the Shoonya-API and websocket.",
     "type": "library",
-    "keywords": ["php","ShoonyaApi","Api","Trading","NSE","BSE","NFO","Finvasia","Stock","Indian"],
+    "keywords": ["php", "ShoonyaApi", "Api", "Trading", "NSE", "BSE", "NFO", "Finvasia", "Stock", "Indian"],
     "homepage": "https://github.com/ghostjat/shoonya-php",
     "license": "MIT",
     "authors": [
@@ -15,13 +15,13 @@
     "support": {
         "issues": "https://github.com/ghostjat/shoonya-php/issues?state=open",
         "source": "https://github.com/ghostjat/shoonya-php",
-        "email":"ghost.jat@gmail.com"
+        "email": "ghost.jat@gmail.com"
     },
-    
+
     "autoload": {
         "psr-4": {
             "Core\\": "src/",
-            "Core\\Api\\":"src/Api/"
+            "Core\\Api\\": "src/Api/"
         }
     },
     "require": {
@@ -29,5 +29,11 @@
         "ratchet/pawl": "^0.4.1",
         "katzgrau/klogger": "dev-master",
         "spomky-labs/otphp": "^11.0"
+    },
+    "config": {
+
+        "platform": {
+            "php": ">=8.0"
+        }
     }
 }

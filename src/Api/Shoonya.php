@@ -8,7 +8,7 @@ use Katzgrau\KLogger\Logger;
 class Shoonya {
 
     protected $guzzle, $jKey, $userName, $accountId, $pwd, $uid,$exarr,$brkname,$email;
-    protected $cred,$logger,$orderNo = [];
+    protected $cred,$logger,$orderBook = [];
     protected const Delivery = 'C', Intraday = 'I', Normal = 'M', CF = 'M';
     protected const FeedTouchLine = 't',FeedSnapQuoate='d';
     protected const PriceMarket = 'MKT', PriceLimit = 'LMT', PrinceSLLmit = 'SL-LMT', PriceSLM = 'SL-MKT' , DS='DS',L2 = '2L' , L3 = '3L';
@@ -198,6 +198,22 @@ class Shoonya {
     
     /**
      * 
+     * @param string $tysm
+     * @param string $exch
+     * @return string
+     */
+    public function getToken(string $tysm, string $exch = 'NFO'):string {
+        $searchScrip = $this->searchScrip($tysm, $exch);
+        return (string) $searchScrip[0]->token;
+    }
+    
+    public function getLTP(string $tysm, string $exch = 'NFO') {
+        $ltp = $this->getQuotes($tysm, $exch);
+        return $ltp->lp;
+    }
+    
+    /**
+     * 
      * @param string $prd
      * @param string $seg
      * @param string $exch
@@ -238,7 +254,18 @@ class Shoonya {
      * @param string $exch
      */
     public function getScripInfo(string $token,string $exch='BSE') {
-        $tkNum = parse_ini_file('scrip/bse.ini');
+        if ($exch == 'BSE') {
+            $tkNum = parse_ini_file('scrip/bse.ini');
+            $token = $tkNum[$token];
+        }
+        if ($exch == 'NSE') {
+            $tkNum = parse_ini_file('scrip/nse.ini');
+            $token = $tkNum[$token];
+        }
+        if ($exch == 'NFO') {
+            $tkNum = parse_ini_file('scrip/nfo.ini');
+            $token = $tkNum[$token];
+        }
         $values = [
             'uid'=> $this->uid,
             'exch'=>$exch,
@@ -254,15 +281,26 @@ class Shoonya {
      * @return array
      */
     public function getQuotes(string $token, string $exchange ='BSE' ){
-        $tkNum = parse_ini_file('scrip/bse.ini');
+        if ($exchange == 'BSE') {
+            $tkNum = parse_ini_file('scrip/bse.ini');
+            $token = $tkNum[$token];
+        }
+        if ($exchange == 'NSE') {
+            $tkNum = parse_ini_file('scrip/nse.ini');
+            $token = $tkNum[$token];
+        }
+        if ($exchange == 'NFO') {
+            $tkNum = parse_ini_file('scrip/nfo.ini');
+            $token = $tkNum[$token];
+        }
         $values = [
-            'uid'=> $this->accountId,
-            'exch'=>$exchange,
-            'token'=>$tkNum[$token]
+            'uid' => $this->accountId,
+            'exch' => $exchange,
+            'token' => $token
         ];
         return $this->request('getquotes', $values);
     }
-    
+
     /**
      * 
      * @param string $token
@@ -272,7 +310,16 @@ class Shoonya {
      * @param string $exch
      */
     public function getTimePriceSeries(string $token,string $startTime = null, string $endTime=null, string $interval='15', string $exch='BSE') {
-        $tkNum = parse_ini_file('scrip/bse.ini');
+        if($exch == 'BSE') {
+            $tkNum = parse_ini_file('scrip/bse.ini');
+        }
+        if($exch == 'NSE') {
+            $tkNum = parse_ini_file('scrip/nse.ini');
+        }
+        if($exch == 'NFO') {
+            $tkNum = parse_ini_file('scrip/nfo.ini');
+        }
+        
         if(is_null($startTime)) {
             $startTime = (string)strtotime(date('d-m-Y'));
         }
@@ -389,7 +436,7 @@ class Shoonya {
      * @param type $booklossPrice
      * @param type $bookprofitPrice
      * @param type $trailPrice
-     * @return boolean
+     * @return String|boolean
      */
     public function placeOrder($buy_or_sell, $productType, $exchange, $tradingSymbol, $quantity, $discloseQty,
             $priceType, $price = 0.0, $triggerPrice = null, $retention = 'DAY', $amo = 'NO', $remarks = null,
@@ -402,7 +449,7 @@ class Shoonya {
             'trantype' => $buy_or_sell,
             'prd' => $productType,
             'exch' => $exchange,
-            'tsym' => ($tradingSymbol), //urllib . parse . quote_plus
+            'tsym' => ($tradingSymbol),
             'qty' => (string)($quantity),
             'dscqty' => (string)($discloseQty),
             'prctyp' => $priceType,
@@ -433,8 +480,27 @@ class Shoonya {
         }
         $req = $this->request('placeorder', $values);
         if($this->log($req, ["order placed, ON:- $req->norenordno", 'failed to place order!'])) {
-            $this->orderNo[] = $req->norenordno;
-            return $req;
+            $this->orderBook['orderID'] = $req->norenordno;
+            $this->orderBook['orderID']['tysm'] = $tradingSymbol;
+            $this->orderBook['orderID']['time'] = date('h:i:s');
+            $this->orderBook['orderID']['date'] = date('d-m-y');
+            return (string)$req->norenordno;
+        }
+        return false;
+    }
+    
+    /**
+     * 
+     * @param string $orderNo
+     * @return boolean
+     */
+    public function getOrderStatus(string $orderNo) {
+        $orderHistory = $this->singleOrderHistory($orderNo);
+        if($orderHistory->status == 'COMPLETE') {
+            $this->orderBook[$orderNo]['status'] = 'C';
+            $this->orderBook[$orderNo]['Qty'] = 1;
+            $this->orderBook[$orderNo]['ap'] = $orderHistory->avgprc;
+            return true;
         }
         return false;
     }
