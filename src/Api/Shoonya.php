@@ -7,18 +7,18 @@ use Katzgrau\KLogger\Logger;
 
 class Shoonya {
 
-    protected $guzzle, $jKey, $userName, $accountId, $pwd, $uid,$exarr,$brkname,$email;
+    protected $wsC,$guzzle, $jKey, $userName, $accountId, $pwd, $uid,$exarr,$brkname,$email;
     protected $cred,$logger,$orderBook = [];
-    protected const Delivery = 'C', Intraday = 'I', Normal = 'M', CF = 'M';
-    protected const FeedTouchLine = 't',FeedSnapQuoate='d';
-    protected const PriceMarket = 'MKT', PriceLimit = 'LMT', PrinceSLLmit = 'SL-LMT', PriceSLM = 'SL-MKT' , DS='DS',L2 = '2L' , L3 = '3L';
-    Protected const Buy = 'B', Sell = 'S', AITG = '>', AITL = '<';
-    
+    public const Delivery = 'C', Intraday = 'I', Normal = 'M', CF = 'M';
+    public const FeedTouchLine = 't',FeedSnapQuoate='d';
+    public const PriceMarket = 'MKT', PriceLimit = 'LMT', PrinceSLLmit = 'SL-LMT', PriceSLM = 'SL-MKT' , DS='DS',L2 = '2L' , L3 = '3L';
+    public const Buy = 'B', Sell = 'S', AITG = 'LTP_A_O', AITL = 'LTP_B_O';
+    public $tmp;
     protected $urls = [
-        'host' => 'https://shoonyatrade.finvasia.com/',
-        'websocket_endpoint' => 'wss://shoonyatrade.finvasia.com/NorenWSTP',
-        'endpoint' => 'https://shoonyatrade.finvasia.com/NorenWClientTP',
-        "eodhost" => 'https://shoonya.finvasia.com/chartApi/getdata',
+        'host' => 'https://api.shoonya.com/',
+        'ws_endpoint' => 'wss://api.shoonya.com/NorenWSTP',
+        'endpoint' => 'https://api.shoonya.com/NorenWClientTP',
+        "eodhost" => 'https://api.shoonya.com/chartApi/getdata',
     ];
     protected $routes = [
         'login' => '/QuickAuth',
@@ -262,10 +262,6 @@ class Shoonya {
             $tkNum = parse_ini_file('scrip/nse.ini');
             $token = $tkNum[$token];
         }
-        if ($exch == 'NFO') {
-            $tkNum = parse_ini_file('scrip/nfo.ini');
-            $token = $tkNum[$token];
-        }
         $values = [
             'uid'=> $this->uid,
             'exch'=>$exch,
@@ -289,10 +285,7 @@ class Shoonya {
             $tkNum = parse_ini_file('scrip/nse.ini');
             $token = $tkNum[$token];
         }
-        if ($exchange == 'NFO') {
-            $tkNum = parse_ini_file('scrip/nfo.ini');
-            $token = $tkNum[$token];
-        }
+      
         $values = [
             'uid' => $this->accountId,
             'exch' => $exchange,
@@ -315,9 +308,6 @@ class Shoonya {
         }
         if($exch == 'NSE') {
             $tkNum = parse_ini_file('scrip/nse.ini');
-        }
-        if($exch == 'NFO') {
-            $tkNum = parse_ini_file('scrip/nfo.ini');
         }
         
         if(is_null($startTime)) {
@@ -351,7 +341,12 @@ class Shoonya {
      * @return type
      */
     public function getDailyPriceSeries(string $token,string $startDate, string $endDate=null, string $exch='BSE') {
-        $tkNum = parse_ini_file('scrip/bse.ini');
+        if($exch == 'BSE') {
+            $tkNum = parse_ini_file('scrip/bse.ini');
+        }
+        if($exch == 'NSE') {
+            $tkNum = parse_ini_file('scrip/nse.ini');
+        }
         if(is_null($endDate)) {
             $et = (string) strtotime(date('d-m-Y'));
         }else {
@@ -428,15 +423,15 @@ class Shoonya {
      * @param type $quantity
      * @param type $discloseQty
      * @param type $priceType
-     * @param type $price
-     * @param type $triggerPrice
+     * @param int $price
+     * @param int $triggerPrice
      * @param type $retention
      * @param type $amo
      * @param type $remarks
-     * @param type $booklossPrice
-     * @param type $bookprofitPrice
-     * @param type $trailPrice
-     * @return String|boolean
+     * @param int $booklossPrice
+     * @param int $bookprofitPrice
+     * @param int $trailPrice
+     * @return boolean
      */
     public function placeOrder($buy_or_sell, $productType, $exchange, $tradingSymbol, $quantity, $discloseQty,
             $priceType, $price = 0.0, $triggerPrice = null, $retention = 'DAY', $amo = 'NO', $remarks = null,
@@ -449,7 +444,7 @@ class Shoonya {
             'trantype' => $buy_or_sell,
             'prd' => $productType,
             'exch' => $exchange,
-            'tsym' => ($tradingSymbol),
+            'tsym' => $tradingSymbol,
             'qty' => (string)($quantity),
             'dscqty' => (string)($discloseQty),
             'prctyp' => $priceType,
@@ -568,32 +563,65 @@ class Shoonya {
         return false;
     }
     
-    public function gttOrder($buy_or_sell, $productType, $exchange, $tradingSymbol, $quantity, $discloseQty,
-            $priceType, $price = 0.0, $triggerPrice = null, $retention = 'DAY', $ai_t = self::AITG, $remarks = null,) {
+    /**
+     * 
+     * @param string $buy_or_sell
+     * @param string $productType 
+     * @param string $exchange  BSE|NSE|NFO|MCX
+     * @param string $tradingSymbol 
+     * @param float $priceToCompare 
+     * @param int $quantity 
+     * @param float $price 
+     * @param string $ai_t 
+     * @param string $retention DAY|EOS|IOC
+     * @param string $remarks
+     * @param int $discloseQty = null
+     * @return boolean
+     */
+    public function gttOrder(string $buy_or_sell, string $productType, string $exchange, string $tradingSymbol, float $priceToCompare,
+            int $quantity, float $price = 0,  string $ai_t = self::AITG, string $retention = 'DAY', string $remarks = null, $discloseQty = null) {
+        if($remarks == null) {
+            $remarks = "gtt for $tradingSymbol placed on " . (string) date('h:i:s');
+        }
         $values = ['ordersource' => 'API',
             'uid' => $this->uid,
             'actid' => $this->accountId,
             'trantype' => $buy_or_sell,
             'prd' => $productType,
             'exch' => $exchange,
-            'tsym' => ($tradingSymbol), 
-            'qty' => (string)($quantity),
-            'dscqty' => (string)($discloseQty),
-            'prctyp' => $priceType,
-            'prc' => (string)($price),
-            'trgprc' => (string)($triggerPrice),
+            'd' => (string) $priceToCompare,
+            'validity' =>'GTT',
+            'tsym' => $tradingSymbol, 
+            'qty' => (string) $quantity,
+            'dscqty' => (string) $discloseQty,
+            'prctyp' => self::PriceLimit,
+            'prc' => (string) $price,
             'ret' => $retention,
             'remarks' => $remarks,
             'validity' => 'GTT',
             'ai_t' => $ai_t
         ];
         $req = $this->request('placegttorder', $values);
-        if($this->log($req, ["gttorder placed, alid:- $req->aL_id", 'failed to place order!'])) {
-            return $req;
+        $this->log($req, ['gtt order has been placed with OI :- '  . $req->al_id,'failed to place gtt order!']);
+        if($req){
+            return true;
         }
         return false;
     }
     
+    /**
+     * 
+     * @param int $alID
+     * @return boolean
+     */
+    public function cancelGtt($alID) {
+        $req = $this->request('cancelgttorder', ['ordersource' =>'API','uid' => $this->uid,'al_id' => (string)$alID]);
+        $this->log($req, ['gtt order has been deleted for OI:- ' . $alID,'failed to delete gttorder for OI :- ' .  $alID]);
+        if($req) {
+            return true;
+        }
+        return false;
+    }
     
     public function getPendingGTT() {
         return $this->request('getpendinggtt', ['ordersource' => 'API','uid' => $this->uid]);
@@ -613,7 +641,6 @@ class Shoonya {
      * ws related  functions
      * 
      */
-    
     public function subscribe(array|string $intst, $feedType = self::FeedTouchLine) {
         $values = [];
         $values['t'] = $feedType;
@@ -646,6 +673,13 @@ class Shoonya {
         $values = ['t'=>'o','actid'=> $this->accountId];
     }
     
+    protected function orderRecords($fields) {
+        $csv = new \SplFileObject(date('dmy') . '_Orders,csv', 'a');
+        $csv->fputcsv($fields);
+        unset($csv);
+    }
+
+
     protected function sessionData($data) {
         $this->jKey = $data->susertoken;
         $this->userName = $data->uname;
@@ -667,7 +701,7 @@ class Shoonya {
      * @return boolean
      */
     protected function log($req,array $msg) {
-        if(!is_null($req) && $req->stat == 'Ok') {
+        if(!is_null($req) && ($req->stat == 'Ok' || $req->stat == 'OI created' || $req->stat == 'OI deleted')) {
             $this->logger->info("User {$this->cred['uid']} " . $msg[0]);
             return true;
         }
