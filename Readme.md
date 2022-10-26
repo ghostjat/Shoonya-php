@@ -14,13 +14,10 @@ Finavsia https://prism.finvasia.com/register/?franchiseLead=OTA1ODY=
 
 # Shoonya-php (unofficial)
 
-This php library used to connect to Finvasia Shoonya API.
+This php library used to connect to Finvasia Shoonya OMS.
 
 This is a php wrapper or connector to the RestAPI and websocket of Shoonya. 
 
-More details are found here
-
-todo
 
 ****
 
@@ -30,21 +27,62 @@ to install this package please use Composer
 
 ``` composer require ghostjat/Shoonya-php ```
 
+****
+
+## API 
+```
+Shoonya-php Api
+login
+logout
+addScripWatchList
+cancleGtt
+cancleOrder
+deleteScripWatchList
+exitOrder
+forgotPassword
+getDailyPriceSeries
+getEnableGtt
+getHoldings
+
+getPendingGtt
+scripmasters
+searchscrip
+get_security_info
+get_quotes
+get_time_price_series
+get_daily_price_series
+get_option_chain
+place_order
+modify_order
+cancel_order
+exit_order
+product_convertion
+get_orderbook
+get_tradebook
+get_singleorderhistory
+get_holdings
+get_positions
+get_limits
+
+```
 
 ****
+
+##Todo
+
+AAB
+PMS
+RLAB
+Live Algo 
+Algo Backtesting
 
 ## Author
 
  @author Shubham Chaudhary
- 
  @author  https://www.linkedin.com/in/drshubh/
-
  @blog https://ghostjat.medium.com
-
  @since Aug 2022
-
- @version 1.0.0
-
+ @version 1.0.1
  @license MIT
 
 ****
@@ -52,5 +90,6 @@ to install this package please use Composer
 ## License
 
 Copyright (C) 2022 Shubham Chaudhary- All Rights Reserved.
+
 ****
 
