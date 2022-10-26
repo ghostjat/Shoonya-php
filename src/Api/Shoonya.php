@@ -262,9 +262,9 @@ class Shoonya {
      * @param int $strprc
      * @param int $count
      * @param string $exch
-     * @return type
+     * @return array
      */
-    public function getOptionChain(string $tsym, int $strprc, int $count = 5, string $exch = 'NFO') {
+    public function getOptionChain(string $tsym, int $strprc, int $count = 5, string $exch = 'NFO'):array {
         $values = [
             'uid' => $this->uid,
             'exch' => $exch,
@@ -272,8 +272,23 @@ class Shoonya {
             'strprc' => "$strprc",
             'cnt' => "$count"
         ];
-        return $this->request('optionchain', $values);
+        $oc = $this->request('optionchain', $values);
+        foreach ($oc->values as $key => $ocData) {
+            if ($ocData->optt == 'CE') {
+                $quotes = $this->getQuotes($ocData->token, 'NFO');
+                $ceData[$ocData->strprc] = ['CE', $ocData->token, $ocData->tsym,$quotes->lp,$quotes->oi,$ocData->strprc];
+            }
+            if ($ocData->optt == 'PE') {
+                $quotes = $this->getQuotes($ocData->token, 'NFO');
+                $peData[$ocData->strprc] = [$quotes->oi,$quotes->lp,$ocData->tsym, $ocData->token,'PE'];
+            }
+        }
+
+        $data = array_merge_recursive($ceData, $peData);
+        ksort($data);
+        return $data;
     }
+    
 
     /**
      * get scrip info 
