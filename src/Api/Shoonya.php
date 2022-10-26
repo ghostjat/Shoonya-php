@@ -5,14 +5,24 @@ namespace Core\Api;
 use GuzzleHttp\Client;
 use Katzgrau\KLogger\Logger;
 
+/**
+ * @category API
+ * @package Shoonya-php
+ * @version 1.0.1
+ * @license MIT
+ * @copyright (c) 2022, Shubham Chaudhary
+ * @author Shubham Chaudhary <ghost.jat@gmail.com>
+ */
 class Shoonya {
 
-    protected $wsC,$guzzle, $jKey, $userName, $accountId, $pwd, $uid,$exarr,$brkname,$email;
-    protected $cred,$logger,$orderBook = [];
+    protected $wsC, $guzzle, $jKey, $userName, $accountId, $pwd, $uid, $exarr, $brkname, $email;
+    protected $cred, $logger, $orderBook = [];
+
     public const Delivery = 'C', Intraday = 'I', Normal = 'M', CF = 'M';
-    public const FeedTouchLine = 't',FeedSnapQuoate='d';
-    public const PriceMarket = 'MKT', PriceLimit = 'LMT', PrinceSLLmit = 'SL-LMT', PriceSLM = 'SL-MKT' , DS='DS',L2 = '2L' , L3 = '3L';
+    public const FeedTouchLine = 't', FeedSnapQuoate = 'd';
+    public const PriceMarket = 'MKT', PriceLimit = 'LMT', PrinceSLLmit = 'SL-LMT', PriceSLM = 'SL-MKT', DS = 'DS', L2 = '2L', L3 = '3L';
     public const Buy = 'B', Sell = 'S', AITG = 'LTP_A_O', AITL = 'LTP_B_O';
+
     public $tmp;
     protected $urls = [
         'host' => 'https://api.shoonya.com/',
@@ -38,7 +48,7 @@ class Shoonya {
         'placegttorder' => '/PlaceGTTOrder',
         'cancelgttorder' => '/CancelGTTOrder',
         'getpendinggtt' => '/GetPendingGTTOrder',
-        'getenabledgtts' =>'/GetEnabledGTTs',
+        'getenabledgtts' => '/GetEnabledGTTs',
         'tradebook' => '/TradeBook',
         'singleorderhistory' => '/SingleOrdHist',
         'searchscrip' => '/SearchScrip',
@@ -49,31 +59,36 @@ class Shoonya {
         'positions' => '/PositionBook',
         'scripinfo' => '/GetSecurityInfo',
         'getquotes' => '/GetQuotes',
-        'setalert' =>'/SetAlert',
-        'cancelalert'=>'/CancelAlert',
-        'modifyalert'=>'/ModifyAlert',
-        'getpendingalert'=>'/GetPendingAlert',
-        'getenabledalerttypes'=>'/GetEnabledAlertTypes'
+        'setalert' => '/SetAlert',
+        'cancelalert' => '/CancelAlert',
+        'modifyalert' => '/ModifyAlert',
+        'getpendingalert' => '/GetPendingAlert',
+        'getenabledalerttypes' => '/GetEnabledAlertTypes'
     ];
 
     public function __construct() {
+        if($this->setTimeZone()) {
         $this->cred = parse_ini_file('cred.ini');
         $this->guzzle = new Client();
         $this->logger = new Logger('log/');
+        }
+        else{
+            echo 'Failed to set time zone!' .PHP_EOL;
+            exit();
+        }
     }
-    
+
     /**
-     * 
+     * to login in shoonya 
      * @return bool
      */
-    public function login():bool {
-        $key = parse_ini_file('totp.ini');
+    public function login(): bool {
         $this->cred['pwd'] = hash('sha256', utf8_encode($this->cred['pwd']));
         $this->cred['appkey'] = hash('sha256', utf8_encode($this->cred['uid'] . '|' . $this->cred['appkey']));
-        $totp = \OTPHP\TOTP::create($key['TOTP']);
+        $totp = \OTPHP\TOTP::create($this->cred['totp']);
         $this->cred['factor2'] = $totp->now();
         $req = $this->request('login', $this->cred, false);
-        if($this->log($req, ['logged in successfully!','falied to loggedin!'])){
+        if ($this->log($req, ['logged in successfully!', 'falied to loggedin!'])) {
             $this->sessionData($req);
             return true;
         }
@@ -81,12 +96,12 @@ class Shoonya {
     }
 
     /**
-     * 
+     * to logout from shoonya
      * @return bool
      */
-    public function logout() :bool {
+    public function logout(): bool {
         $req = $this->request('logout', ['ordersource' => 'API', 'uid' => $this->uid]);
-        if($this->log($req, ['logout successfully!','failed to logout!'])){
+        if ($this->log($req, ['logout successfully!', 'failed to logout!'])) {
             $this->jKey = null;
             $this->userName = null;
             $this->accountId = null;
@@ -95,123 +110,127 @@ class Shoonya {
         }
         return false;
     }
-    
+
     /**
-     * 
+     * to reset the password
      * @param string $uid
      * @param string $pan
      * @param string $dob
      * @return bool
      */
-    public function forgotPassword(string $uid, string $pan, string $dob):bool {
+    public function forgotPassword(string $uid, string $pan, string $dob): bool {
         $values = [
-            'source'=>'API',
+            'source' => 'API',
             'uid' => $uid,
             'pan' => $pan,
             'dob' => $dob
         ];
-        $req = $this->request('forgot_password', $values,false);
-        return $this->log($req, ['Password Changed Successfully','Could not changed password!']);   
+        $req = $this->request('forgot_password', $values, false);
+        return $this->log($req, ['Password Changed Successfully', 'Could not changed password!']);
     }
-    
+
     /**
-     * 
+     * get the watchlist names
      * @return array|bool
      */
-    public function getWatchListNames():array|bool {
-        $req = $this->request('watchlist_names', ['ordersource'=>'API','uid'=> $this->uid]);
-        if($this->log($req, ['wlN data fatched successfully','failed to fecth wlN data'])){
+    public function getWatchListNames(): array|bool {
+        $req = $this->request('watchlist_names', ['ordersource' => 'API', 'uid' => $this->uid]);
+        if ($this->log($req, ['wlN data fatched successfully', 'failed to fecth wlN data'])) {
             return $req->values;
         }
         return false;
     }
-    
+
     /**
-     * 
+     * get watchlist 
      * @param string $wlname
      * @return array|bool
      */
-    public function getWatchList(string $wlname):array|bool {
-        $req = $this->request('watchlist', ['ordersource'=>'API','uid'=> $this->uid,'wlname'=>(string)$wlname]);
-        if($this->log($req, ['wl data fatched successfully','failed to fecth wl data'])){
+    public function getWatchList(string $wlname): array|bool {
+        $req = $this->request('watchlist', ['ordersource' => 'API', 'uid' => $this->uid, 'wlname' => (string) $wlname]);
+        if ($this->log($req, ['wl data fatched successfully', 'failed to fecth wl data'])) {
             return $req->values;
         }
         return false;
     }
-    
+
     /**
-     * 
+     * add scrip to watchlist
      * @param string $wlname
      * @param string|array $instrument
      * @return boolean
      */
     public function addScripWatchList(string $wlname, string|array $instrument) {
-        $values = ['ordersource'=>'API','uid'=> $this->uid,'wlname'=>$wlname];
-        if(is_array($instrument)) {
+        $values = ['ordersource' => 'API', 'uid' => $this->uid, 'wlname' => $wlname];
+        if (is_array($instrument)) {
             $values['scrips'] = implode('#', $instrument);
-        }
-        else {
+        } else {
             $values['scrips'] = $instrument;
         }
         $req = $this->request('watchlist_add', $values);
-        if($this->log($req, ['scrip added successfully','failed to add in wl'])){
+        if ($this->log($req, ['scrip added successfully', 'failed to add in wl'])) {
             return $req;
         }
-        return false; 
+        return false;
     }
-    
+
     /**
-     * 
+     * delete scrip from watchlist
      * @param string $wlname
      * @param string|array $instrument
      * @return boolean
      */
     public function deleteScripWatchList(string $wlname, string|array $instrument) {
-        $values = ['ordersource'=>'API','uid'=> $this->uid,'wlname'=>$wlname];
-        if(is_array($instrument)) {
+        $values = ['ordersource' => 'API', 'uid' => $this->uid, 'wlname' => $wlname];
+        if (is_array($instrument)) {
             $values['scrips'] = implode('#', $instrument);
-        }
-        else {
+        } else {
             $values['scrips'] = $instrument;
         }
         $req = $this->request('watchlist_delete', $values);
-        if($this->log($req, ['scrip deleted successfully','failed to delete from wl'])){
+        if ($this->log($req, ['scrip deleted successfully', 'failed to delete from wl'])) {
             return $req;
         }
-        return false; 
+        return false;
     }
 
     /**
-     * 
+     * search for scrip
      * @param string $searchtext
      * @param string $exchange
      * @return array
      */
-    public function searchScrip(string $searchtext, string $exchange ='BSE'):array {
+    public function searchScrip(string $searchtext, string $exchange = 'BSE'): array {
         $values = [
             'uid' => $this->uid,
             'exch' => $exchange,
-            'stext' => $searchtext // urllib . parse . quote_plus
+            'stext' => $searchtext
         ];
         return $this->request('searchscrip', $values)->values;
     }
-    
+
     /**
-     * 
+     * get scrip's token 
      * @param string $tysm
      * @param string $exch
      * @return string
      */
-    public function getToken(string $tysm, string $exch = 'NFO'):string {
+    public function getToken(string $tysm, string $exch = 'NFO'): string {
         $searchScrip = $this->searchScrip($tysm, $exch);
         return (string) $searchScrip[0]->token;
     }
-    
+
+    /**
+     * get ltp of scrip
+     * @param string $tysm
+     * @param string $exch
+     * @return type
+     */
     public function getLTP(string $tysm, string $exch = 'NFO') {
         $ltp = $this->getQuotes($tysm, $exch);
         return $ltp->lp;
     }
-    
+
     /**
      * 
      * @param string $prd
@@ -219,41 +238,49 @@ class Shoonya {
      * @param string $exch
      * @return type
      */
-    public function getLimits($prd=null,$seg=null,$exch=null) {
+    public function getLimits($prd = null, $seg = null, $exch = null) {
         $values = [
             'uid' => $this->uid,
             'actid' => $this->accountId
         ];
-        
-        if(!is_null($prd)){
+
+        if (!is_null($prd)) {
             $values['prd'] = $prd;
         }
-        if(!is_null($seg)) {
+        if (!is_null($seg)) {
             $values['seg'] = $seg;
         }
-        if(!is_null($exch)){
+        if (!is_null($exch)) {
             $values['exch'] = $exch;
         }
         return $this->request('limits', $values);
     }
-    
-    public function getOptionChain(string $tsym, int $strprc,int $count=5, string $exch='NFO') {
+
+    /**
+     * get option chain
+     * @param string $tsym
+     * @param int $strprc
+     * @param int $count
+     * @param string $exch
+     * @return type
+     */
+    public function getOptionChain(string $tsym, int $strprc, int $count = 5, string $exch = 'NFO') {
         $values = [
-            'uid'=> $this->uid,
-            'exch'=>$exch,
-            'tsym' =>$tsym,
+            'uid' => $this->uid,
+            'exch' => $exch,
+            'tsym' => $tsym,
             'strprc' => "$strprc",
-            'cnt'=> "$count"
+            'cnt' => "$count"
         ];
         return $this->request('optionchain', $values);
     }
-    
+
     /**
-     * 
+     * get scrip info 
      * @param string $token
      * @param string $exch
      */
-    public function getScripInfo(string $token,string $exch='BSE') {
+    public function getScripInfo(string $token, string $exch = 'BSE') {
         if ($exch == 'BSE') {
             $tkNum = parse_ini_file('scrip/bse.ini');
             $token = $tkNum[$token];
@@ -263,20 +290,20 @@ class Shoonya {
             $token = $tkNum[$token];
         }
         $values = [
-            'uid'=> $this->uid,
-            'exch'=>$exch,
-            'token'=>$tkNum[$token]
+            'uid' => $this->uid,
+            'exch' => $exch,
+            'token' => $tkNum[$token]
         ];
         return $this->request('scripinfo', $values);
     }
-    
+
     /**
-     * 
+     * get running quotes of scrip
      * @param string $token
      * @param string $exchange
      * @return array
      */
-    public function getQuotes(string $token, string $exchange ='BSE' ){
+    public function getQuotes(string $token, string $exchange = 'BSE') {
         if ($exchange == 'BSE') {
             $tkNum = parse_ini_file('scrip/bse.ini');
             $token = $tkNum[$token];
@@ -285,7 +312,7 @@ class Shoonya {
             $tkNum = parse_ini_file('scrip/nse.ini');
             $token = $tkNum[$token];
         }
-      
+
         $values = [
             'uid' => $this->accountId,
             'exch' => $exchange,
@@ -295,127 +322,131 @@ class Shoonya {
     }
 
     /**
-     * 
+     * get time series based price data in minutes
      * @param string $token
      * @param string $startTime d-m-Y
      * @param string $endTime
      * @param string $interval 1, 3, 5 , 10, 15, 30, 60, 120, 240
      * @param string $exch
      */
-    public function getTimePriceSeries(string $token,string $startTime = null, string $endTime=null, string $interval='15', string $exch='BSE') {
-        if($exch == 'BSE') {
+    public function getTimePriceSeries(string $token, string $startTime = null, string $endTime = null, string $interval = '15', string $exch = 'BSE') {
+        if ($exch == 'BSE') {
             $tkNum = parse_ini_file('scrip/bse.ini');
         }
-        if($exch == 'NSE') {
+        if ($exch == 'NSE') {
             $tkNum = parse_ini_file('scrip/nse.ini');
         }
-        
-        if(is_null($startTime)) {
-            $startTime = (string)strtotime(date('d-m-Y'));
-        }
-        else{
-            $startTime = (string)strtotime($startTime);
-        }
-        
+
         $values = [
-            'uid'=> $this->accountId,
-            'exch'=>$exch,
-            'token'=>$tkNum[$token],
-            'st'=> $startTime
+            'ordersource' => 'API',
+            'uid' => $this->accountId,
+            'exch' => $exch,
+            'token' => $tkNum[$token]
         ];
-        if(!is_null($endTime)) {
-            $values['et'] = (string)strtotime($endTime);
+        
+         if (is_null($startTime)) {
+            $values['st'] = (string) strtotime(date('d-m-Y h:i:s'));
+        } else {
+            $values['st'] = (string) strtotime($startTime);
         }
-        if(!is_null($interval)) {
-            $values['intrv'] = (string) $interval;
+        if (is_null($endTime)) {
+            $values['et'] = (string) strtotime(date('d-m-Y h:i:s')); 
         }
+        else {
+            $values['et'] = (string) strtotime($endTime);
+        }
+        
+        $values['intrv'] = (string) $interval;
+        
         return $this->request('TPSeries', $values);
     }
-    
+
     /**
-     * 
-     * @param string $token
+     * get eod price series data
+     * @param string $tysm
      * @param string $startDate
      * @param string $endDate
      * @param string $exch
      * @return type
      */
-    public function getDailyPriceSeries(string $token,string $startDate, string $endDate=null, string $exch='BSE') {
-        if($exch == 'BSE') {
-            $tkNum = parse_ini_file('scrip/bse.ini');
-        }
-        if($exch == 'NSE') {
-            $tkNum = parse_ini_file('scrip/nse.ini');
-        }
-        if(is_null($endDate)) {
-            $et = (string) strtotime(date('d-m-Y'));
-        }else {
-            $et=  (string) strtotime($endDate);
+    public function getDailyPriceSeries(string $tysm, string $startDate, string $endDate = null, string $exch = 'NSE') {
+      
+        if (is_null($endDate)) {
+            $et = (string) strtotime(date('d-m-Y 00:00:00'));
+        } else {
+            $et = (string) strtotime($endDate);
         }
         $st = (string) strtotime($startDate);
-        
+
         $values = [
-            'uid'=> $this->accountId,
-            'sym'=>" $exch : $tkNum[$token]" ,
-            'from'=>$st,
-            'to'=> $et
+            'ordersource' => 'API',
+            'uid' => $this->accountId,
+            'sym' => " $exch : $tysm",
+            'from' => $st,
+            'to' => $et
         ];
-        $request = $this->guzzle->post($this->urls['eodhost'], [
-                    'header' => ['Content-Type' =>  'application/json'],
-                    'body' => $this->jData($values)
+        
+         $request = $this->guzzle->post($this->urls['eodhost'], [
+          'header' => ['Content-Type' => 'application/json'],
+            'body' => $this->jData($values)
         ]);
-        $decode = $this->decode($request->getBody());
-        return $decode;
-    }
-    
-    public function positionProductConversion() {
+        return $this->decode($request->getBody());
+         
+            
         
     }
     
     /**
-     * 
+     * @todo procduct position conversion
+     */
+    public function positionProductConversion() {
+        
+    }
+
+    /**
+     * get single order history
      * @param int $orderNo
      * @return type
      */
     public function singleOrderHistory(int $orderNo) {
-        return $this->request('singleorderhistory', ['uid'=> $this->uid,'norenordno'=>$orderNo]);
+        return $this->request('singleorderhistory', ['uid' => $this->uid, 'norenordno' => $orderNo]);
     }
 
     /**
-     * 
+     * get order book
      * @return array
      */
     public function getOrderbook() {
         return $this->request('orderbook', ['uid' => $this->uid]);
     }
-    
+
     /**
-     * 
+     * get trade book
      * @return array|bool
      */
     public function getTradebook() {
-        return $this->request('tradebook', ['uid' => $this->uid,'actid'=> $this->accountId]);
+        return $this->request('tradebook', ['uid' => $this->uid, 'actid' => $this->accountId]);
     }
 
     /**
-     * 
+     * get portfolio holdings
      * @param string $productType
      * @return array | stdClass
      */
     public function getHoldings($productType = self::Delivery) {
-        return $this->request('holdings', ['uid' => $this->uid,'actid' => $this->accountId,'prd' => $productType]);
+        return $this->request('holdings', ['uid' => $this->uid, 'actid' => $this->accountId, 'prd' => $productType]);
     }
-    
+
     /**
      * 
      * @return array | stdClass
      */
     public function getPositions() {
-        return $this->request('positions',['uid' => $this->uid, 'actid' => $this->accountId]);
+        return $this->request('positions', ['uid' => $this->uid, 'actid' => $this->accountId]);
     }
 
     /**
-     * 
+     * to place diffrent type of orders 
      * @param type $buy_or_sell
      * @param type $productType
      * @param type $exchange
@@ -445,11 +476,11 @@ class Shoonya {
             'prd' => $productType,
             'exch' => $exchange,
             'tsym' => $tradingSymbol,
-            'qty' => (string)($quantity),
-            'dscqty' => (string)($discloseQty),
+            'qty' => (string) ($quantity),
+            'dscqty' => (string) ($discloseQty),
             'prctyp' => $priceType,
-            'prc' => (string)($price),
-            'trgprc' => (string)($triggerPrice),
+            'prc' => (string) ($price),
+            'trgprc' => (string) ($triggerPrice),
             'ret' => $retention,
             'remarks' => $remarks,
             'amo' => $amo
@@ -457,41 +488,41 @@ class Shoonya {
 
         #if cover order or high leverage order
         if ($productType == 'H') {
-            $values["blprc"] = (string)($booklossPrice);
+            $values["blprc"] = (string) ($booklossPrice);
             #trailing price
             if ($trailPrice != 0.0) {
-                $values["trailprc"] = (string)($trailPrice);
+                $values["trailprc"] = (string) ($trailPrice);
             }
         }
 
         #bracket order
         if ($productType == 'B') {
-            $values["blprc"] = (string)($booklossPrice);
-            $values["bpprc"] = (string)($bookprofitPrice);
+            $values["blprc"] = (string) ($booklossPrice);
+            $values["bpprc"] = (string) ($bookprofitPrice);
             #trailing price
             if ($trailPrice != 0.0) {
-                $values["trailprc"] = (string)($trailPrice);
+                $values["trailprc"] = (string) ($trailPrice);
             }
         }
         $req = $this->request('placeorder', $values);
-        if($this->log($req, ["order placed, ON:- $req->norenordno", 'failed to place order!'])) {
+        if ($this->log($req, ["order placed, ON:- $req->norenordno", 'failed to place order!'])) {
             $this->orderBook['orderID'] = $req->norenordno;
             $this->orderBook['orderID']['tysm'] = $tradingSymbol;
             $this->orderBook['orderID']['time'] = date('h:i:s');
             $this->orderBook['orderID']['date'] = date('d-m-y');
-            return (string)$req->norenordno;
+            return (string) $req->norenordno;
         }
         return false;
     }
-    
+
     /**
-     * 
+     * get the placed order status
      * @param string $orderNo
      * @return boolean
      */
     public function getOrderStatus(string $orderNo) {
         $orderHistory = $this->singleOrderHistory($orderNo);
-        if($orderHistory->status == 'COMPLETE') {
+        if ($orderHistory->status == 'COMPLETE') {
             $this->orderBook[$orderNo]['status'] = 'C';
             $this->orderBook[$orderNo]['Qty'] = 1;
             $this->orderBook[$orderNo]['ap'] = $orderHistory->avgprc;
@@ -499,57 +530,81 @@ class Shoonya {
         }
         return false;
     }
-    
-    public function modifyOrder($orderNo,$exchange, $tradingSymbol, $newquantity,
-                    $newpriceType, $newprice=0.0, $newtriggerPrice=null, $booklossPrice = 0.0, $bookprofitPrice = 0.0, $trailPrice = 0.0){
+
+    /**
+     * to modify placed order
+     * @param type $orderNo
+     * @param type $exchange
+     * @param type $tradingSymbol
+     * @param type $newquantity
+     * @param type $newpriceType
+     * @param type $newprice
+     * @param type $newtriggerPrice
+     * @param type $booklossPrice
+     * @param type $bookprofitPrice
+     * @param type $trailPrice
+     * @return boolean
+     */
+    public function modifyOrder($orderNo, $exchange, $tradingSymbol, $newquantity,
+            $newpriceType, $newprice = 0.0, $newtriggerPrice = null, $booklossPrice = 0.0, $bookprofitPrice = 0.0, $trailPrice = 0.0) {
         $values = ['ordersource' => 'API',
             'uid' => $this->uid,
             'actid' => $this->accountId,
             'norenordno' => (string) ($orderNo),
             'exch' => $exchange,
-            'tsym' => ($tradingSymbol), 
-            'qty' => (string)($newquantity),
+            'tsym' => ($tradingSymbol),
+            'qty' => (string) ($newquantity),
             'prctyp' => $newpriceType,
-            'prc' => (string)($newprice)
+            'prc' => (string) ($newprice)
         ];
-        if($newpriceType == self::PrinceSLLmit || $newpriceType == self::PriceSLM) {
-            if($newtriggerPrice != null) {
-                $values['trgprc'] = (string)($newtriggerPrice);
-            }
-            else{
-                $this->log(null, ['','trigger price is missing!']);
+        if ($newpriceType == self::PrinceSLLmit || $newpriceType == self::PriceSLM) {
+            if ($newtriggerPrice != null) {
+                $values['trgprc'] = (string) ($newtriggerPrice);
+            } else {
+                $this->log(null, ['', 'trigger price is missing!']);
                 return false;
             }
         }
-        if($booklossPrice != 0.0) {
-            $values['blprc'] = (string)($booklossPrice);
+        if ($booklossPrice != 0.0) {
+            $values['blprc'] = (string) ($booklossPrice);
         }
-        if($trailPrice !=0.0) {
-            $values['trailprc'] = (string)($trailPrice);
+        if ($trailPrice != 0.0) {
+            $values['trailprc'] = (string) ($trailPrice);
         }
-        if($bookprofitPrice!=0.0) {
-            $values['bpprc'] = (string)($bookprofitPrice);
+        if ($bookprofitPrice != 0.0) {
+            $values['bpprc'] = (string) ($bookprofitPrice);
         }
         $req = $this->request('modifyorder', $values);
-        if($this->log($req, ["order modified, ON:- $orderNo", 'failed to modify order!'])) {
+        if ($this->log($req, ["order modified, ON:- $orderNo", 'failed to modify order!'])) {
             return $req;
         }
         return false;
     }
-    
+
+    /**
+     * cancle placed order
+     * @param type $orderNo
+     * @return boolean
+     */
     public function cancelOrder($orderNo) {
         $values = ['ordersource' => 'API',
             'uid' => $this->uid,
             'norenordno' => (string) ($orderNo)
         ];
         $req = $this->request('cancelorder', $values);
-        if($this->log($req, ["order canceled, ON:- $orderNo", 'failed to cancel order!'])) {
+        if ($this->log($req, ["order canceled, ON:- $orderNo", 'failed to cancel order!'])) {
             return $req;
         }
         return false;
     }
-    
-    public function exitOrder($orderNo,$productType) {
+
+    /**
+     * close/exit from position
+     * @param type $orderNo
+     * @param type $productType
+     * @return boolean
+     */
+    public function exitOrder($orderNo, $productType) {
         $values = ['ordersource' => 'API',
             'uid' => $this->uid,
             'actid' => $this->accountId,
@@ -557,14 +612,14 @@ class Shoonya {
             'prd' => $productType
         ];
         $req = $this->request('exitorder', $values);
-        if($this->log($req, ["order canceled, ON:- $orderNo", 'failed to cancel order!'])) {
+        if ($this->log($req, ["order canceled, ON:- $orderNo", 'failed to cancel order!'])) {
             return $req;
         }
         return false;
     }
-    
+
     /**
-     * 
+     * set gtt or gtc order 
      * @param string $buy_or_sell
      * @param string $productType 
      * @param string $exchange  BSE|NSE|NFO|MCX
@@ -579,8 +634,8 @@ class Shoonya {
      * @return boolean
      */
     public function gttOrder(string $buy_or_sell, string $productType, string $exchange, string $tradingSymbol, float $priceToCompare,
-            int $quantity, float $price = 0,  string $ai_t = self::AITG, string $retention = 'DAY', string $remarks = null, $discloseQty = null) {
-        if($remarks == null) {
+            int $quantity, float $price = 0, string $ai_t = self::AITG, string $retention = 'DAY', string $remarks = null, $discloseQty = null) {
+        if ($remarks == null) {
             $remarks = "gtt for $tradingSymbol placed on " . (string) date('h:i:s');
         }
         $values = ['ordersource' => 'API',
@@ -590,8 +645,8 @@ class Shoonya {
             'prd' => $productType,
             'exch' => $exchange,
             'd' => (string) $priceToCompare,
-            'validity' =>'GTT',
-            'tsym' => $tradingSymbol, 
+            'validity' => 'GTT',
+            'tsym' => $tradingSymbol,
             'qty' => (string) $quantity,
             'dscqty' => (string) $discloseQty,
             'prctyp' => self::PriceLimit,
@@ -602,41 +657,47 @@ class Shoonya {
             'ai_t' => $ai_t
         ];
         $req = $this->request('placegttorder', $values);
-        $this->log($req, ['gtt order has been placed with OI :- '  . $req->al_id,'failed to place gtt order!']);
-        if($req){
+        $this->log($req, ['gtt order has been placed with OI :- ' . $req->al_id, 'failed to place gtt order!']);
+        if ($req) {
             return true;
         }
         return false;
     }
-    
+
     /**
-     * 
+     * to cancle placed gtt
      * @param int $alID
      * @return boolean
      */
     public function cancelGtt($alID) {
-        $req = $this->request('cancelgttorder', ['ordersource' =>'API','uid' => $this->uid,'al_id' => (string)$alID]);
-        $this->log($req, ['gtt order has been deleted for OI:- ' . $alID,'failed to delete gttorder for OI :- ' .  $alID]);
-        if($req) {
+        $req = $this->request('cancelgttorder', ['ordersource' => 'API', 'uid' => $this->uid, 'al_id' => (string) $alID]);
+        $this->log($req, ['gtt order has been deleted for OI:- ' . $alID, 'failed to delete gttorder for OI :- ' . $alID]);
+        if ($req) {
             return true;
         }
         return false;
     }
-    
-    public function getPendingGTT() {
-        return $this->request('getpendinggtt', ['ordersource' => 'API','uid' => $this->uid]);
-    }
-    
-    public function getEnableGTT() {
-        return $this->request('getenabledgtts', ['ordersource' => 'API','uid' => $this->uid]);
+
+    /**
+     * get pending gtt order details
+     * @return type
+     */
+    public function getPendingGtt() {
+        return $this->request('getpendinggtt', ['ordersource' => 'API', 'uid' => $this->uid]);
     }
 
+    public function getEnableGtt() {
+        return $this->request('getenabledgtts', ['ordersource' => 'API', 'uid' => $this->uid]);
+    }
 
+    /**
+     * get current session tmp data
+     * @return type
+     */
     public function getSessionData() {
-        return ['jKey' => $this->jKey,'uid'=>$this->uid,'actid'=> $this->accountId, 'uname'=>$this->userName, $this->exarr, $this->brkname];
+        return ['jKey' => $this->jKey, 'uid' => $this->uid, 'actid' => $this->accountId, 'uname' => $this->userName, $this->exarr, $this->brkname];
     }
-    
-    
+
     /**
      * ws related  functions
      * 
@@ -644,41 +705,72 @@ class Shoonya {
     public function subscribe(array|string $intst, $feedType = self::FeedTouchLine) {
         $values = [];
         $values['t'] = $feedType;
-        if(is_array($intst)){
+        if (is_array($intst)) {
             $values['k'] = implode('#', $intst);
-        }
-        else {
+        } else {
             $values['k'] = $intst;
         }
     }
-    
+
     public function unsubscribe(array|string $intst, $feedType = self::FeedTouchLine) {
         $values = [];
-        if($feedType == self::FeedTouchLine){
+        if ($feedType == self::FeedTouchLine) {
             $values['t'] = 'u';
-        }
-        elseif($feedType == self::FeedSnapQuoate) {
+        } elseif ($feedType == self::FeedSnapQuoate) {
             $values['t'] = 'ud';
         }
-        
-        if(is_array($intst)){
+
+        if (is_array($intst)) {
             $values['k'] = implode('#', $intst);
-        }
-        else {
+        } else {
             $values['k'] = $intst;
         }
     }
-    
+
+    /**
+     * @todo 
+     */
     public function subscribeOrders() {
-        $values = ['t'=>'o','actid'=> $this->accountId];
+        $values = ['t' => 'o', 'actid' => $this->accountId];
     }
     
+    /**
+     * send telegram notification
+     * @param string $msg
+     * @return bool
+     */
+    public function telegram(string $msg):bool {
+        $data = ['chat_id' => $this->cred['ci'],'text'=>$msg];
+        $send = $this->decode(file_get_contents("https://api.telegram.org/bot{$this->cred['at']}/sendMessage?" . http_build_query($data)));
+        if($send->ok == 'true') {
+            echo 'Telegram notification has been sent to ' . $this->cred['ci'] . ' @ ' . date('h:i:m') . PHP_EOL;
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * to compare two times if t1 < t2 return true else return false
+     * @param string $t1
+     * @param string $t2
+     * @return bool
+     */
+    public function timeComperison(string $t1,string $t2):bool {
+        if(strtotime(date($t1)) < strtotime($t2)) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * to keep local record of orders
+     * @param type $fields
+     */
     protected function orderRecords($fields) {
         $csv = new \SplFileObject(date('dmy') . '_Orders,csv', 'a');
         $csv->fputcsv($fields);
         unset($csv);
     }
-
 
     protected function sessionData($data) {
         $this->jKey = $data->susertoken;
@@ -690,28 +782,27 @@ class Shoonya {
         $this->email = $data->email;
     }
 
-    protected function decode($jsonData) {
-        return json_decode($jsonData);
-    }
-    
     /**
      * 
      * @param object $req
      * @param array $msg
      * @return boolean
      */
-    protected function log($req,array $msg) {
-        if(!is_null($req) && ($req->stat == 'Ok' || $req->stat == 'OI created' || $req->stat == 'OI deleted')) {
+    protected function log($req, array $msg) {
+        if (!is_null($req) && ($req->stat == 'Ok' || $req->stat == 'OI created' || $req->stat == 'OI deleted')) {
             $this->logger->info("User {$this->cred['uid']} " . $msg[0]);
             return true;
         }
         $this->logger->notice("User {$this->cred['uid']} " . $msg[1]);
-        return false ;
+        return false;
+    }
+    
+    protected function decode($jsonData) {
+        return json_decode($jsonData);
     }
 
-
-    protected function request(string $routes, array $jData,$iskey=true){
-        $request = $this->post($this->routes[$routes], $this->jData($jData),$iskey);
+    protected function request(string $routes, array $jData, $iskey = true) {
+        $request = $this->post($this->routes[$routes], $this->jData($jData, $iskey));
         $decode = $this->decode($request->getBody());
         return $decode;
     }
@@ -724,9 +815,9 @@ class Shoonya {
         ]);
     }
 
-    protected function jData($data,$isKey = true) {
-        if($isKey){
-            return 'jData=' .json_encode($data) . $this->jKey();
+    protected function jData($data, $isKey = true) {
+        if ($isKey) {
+            return 'jData=' . json_encode($data) . $this->jKey();
         }
         return 'jData=' . json_encode($data);
     }
@@ -734,5 +825,13 @@ class Shoonya {
     protected function jKey() {
         return '&jKey=' . $this->jKey;
     }
-
+    
+    /**
+     * 
+     * @param string $timezone
+     * @return bool
+     */
+    private function setTimeZone(string $timezone = 'Asia/Kolkata'):bool {
+        return date_default_timezone_set($timezone);
+    }
 }

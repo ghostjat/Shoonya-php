@@ -2,7 +2,7 @@
     "name": "ghostjat/shoonya-php",
     "description": "A php wrapper or connector to the Shoonya-API and websocket.",
     "type": "library",
-    "keywords": ["php", "ShoonyaApi", "Api", "Trading", "NSE", "BSE", "NFO", "Finvasia", "Stock", "Indian"],
+    "keywords": ["php", "ShoonyaApi", "Api", "Trading", "NSE", "BSE", "NFO", "Finvasia", "Stock", "Indian","Bot"],
     "homepage": "https://github.com/ghostjat/shoonya-php",
     "license": "MIT",
     "authors": [
