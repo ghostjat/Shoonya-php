@@ -27,7 +27,7 @@
     "require": {
         "guzzlehttp/guzzle": "^7.0",
         "ratchet/pawl": "^0.4.1",
-        "katzgrau/klogger": "dev-master",
+        "katzgrau/klogger": "^1.2.2",
         "spomky-labs/otphp": "^11.0",
         "php": ">=8.0"
     }

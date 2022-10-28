@@ -117,25 +117,6 @@ $remarks = null, int $discloseQty = null, ): boolean` set gtt or gtc order
 
 `  public  telegram(string $msg): bool` send telegram notification
 
-`  protected  orderRecords(type $fields)` to keep local record of orders
-
-`  protected  sessionData($data)`
-
-`  protected  log(object $req, array $msg): boolean`
-
-`  protected  decode($jsonData)`
-
-`  protected  request(string $routes, array $jData, $iskey = true)`
-
-`  protected  post($routes, $body, $contentType = 'application/json')`
-
-`  protected  jData($data, $isKey = true)`
-
-`  protected  jKey()`
-
-`  private  setTimeZone(string $timezone = 'Asia/Kolkata'): bool`
-
-
 ****
 
 ## Todo
