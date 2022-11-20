@@ -201,6 +201,7 @@ class Shoonya {
      * @return array
      */
     public function searchScrip(string $searchtext, string $exchange = 'BSE'): array {
+        
         $values = [
             'uid' => $this->uid,
             'exch' => $exchange,
@@ -289,6 +290,24 @@ class Shoonya {
         return $data;
     }
     
+    /**
+     * get scrip exchange token based on local database
+     * @param string $scrip
+     * @param string $exch
+     * @return type
+     */
+    public function getScripToken(string $scrip,string $exch = 'BSE') {
+        if ($exch == 'BSE') {
+            $tkNum = parse_ini_file('scrip/bse.ini');
+            $token = $tkNum[$scrip];
+        }
+        if ($exch == 'NSE') {
+            $tkNum = parse_ini_file('scrip/nse.ini');
+            $token = $tkNum[$scrip];
+        }
+        return $token;
+    }
+    
 
     /**
      * get scrip info 
@@ -296,18 +315,11 @@ class Shoonya {
      * @param string $exch
      */
     public function getScripInfo(string $token, string $exch = 'BSE') {
-        if ($exch == 'BSE') {
-            $tkNum = parse_ini_file('scrip/bse.ini');
-            $token = $tkNum[$token];
-        }
-        if ($exch == 'NSE') {
-            $tkNum = parse_ini_file('scrip/nse.ini');
-            $token = $tkNum[$token];
-        }
+        $tkNum = $this->getScripToken($token,$exch);
         $values = [
             'uid' => $this->uid,
             'exch' => $exch,
-            'token' => $tkNum[$token]
+            'token' => $tkNum
         ];
         return $this->request('scripinfo', $values);
     }
@@ -387,11 +399,11 @@ class Shoonya {
     public function getDailyPriceSeries(string $tysm, string $startDate, string $endDate = null, string $exch = 'NSE') {
       
         if (is_null($endDate)) {
-            $et = (string) strtotime(date('d-m-Y 00:00:00'));
+            $et = (string) strtotime(date('d-m-Y 15:30:00'));
         } else {
-            $et = (string) strtotime($endDate);
+            $et = strtotime($endDate);
         }
-        $st = (string) strtotime($startDate);
+        $st =  strtotime($startDate);
 
         $values = [
             'ordersource' => 'API',
@@ -403,12 +415,9 @@ class Shoonya {
         
          $request = $this->guzzle->post($this->urls['eodhost'], [
           'header' => ['Content-Type' => 'application/json'],
-            'body' => $this->jData($values)
+            'body' => json_encode($values)
         ]);
         return $this->decode($request->getBody());
-         
-            
-        
     }
     
     /**
@@ -717,6 +726,24 @@ class Shoonya {
      * ws related  functions
      * 
      */
+    
+    public function connectWS() {
+        $value = [
+            't' => 'c',
+            'uid' => $this->uid,
+            'actid' => $this->accountId,
+            'ordersource' => 'API',
+            'susertoken' => $this->jKey];
+        $this->wsC = new \WSSC\WebSocketClient($this->urls['ws_endpoint'], new \WSSC\Components\ClientConfig());
+        $this->wsC->send(json_encode($value));
+        print_r($this->wsC->receive());
+        if($this->wsC->isConnected()) {
+            return true;
+        }
+        echo 'Failed to connect to WSS' . PHP_EOL;
+        return false;
+    }
+
     public function subscribe(array|string $intst, $feedType = self::FeedTouchLine) {
         $values = [];
         $values['t'] = $feedType;
