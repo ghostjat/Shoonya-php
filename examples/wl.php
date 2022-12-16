@@ -2,7 +2,7 @@
 
 require 'vendor/autoload.php';
 
-use Core\Api\Shoonya;
+use Core\Shoonya;
 
 $api = new Shoonya();
 $scip = ['asahiindia', 'ashoka', 'gujalkali', 'cesc', 'pnb', 'jindalpoly'];

@@ -7,7 +7,7 @@
 
 require 'vendor/autoload.php';
 
-$api = new Core\Api\Shoonya();
+$api = new Core\Shoonya();
 
 if($api->login()) {
     echo 'Successfully Login....' . PHP_EOL;

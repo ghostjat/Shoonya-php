@@ -2,15 +2,15 @@
 
 require '../vendor/autoload.php';
 
-use Core\Api\Shoonya;
+use Core\Shoonya;
 
 $api = new Shoonya();
 
 if($api->login()) {
-    // algo logic ..........!
+    // algo logic...!
     
 }
 
 if($api->logout()) {
-    // logic .....
+    // logic 
 }

@@ -1,6 +1,6 @@
 <?php
 
-namespace Core\Api;
+namespace Core;
 
 use GuzzleHttp\Client;
 use Katzgrau\KLogger\Logger;
@@ -227,7 +227,7 @@ class Shoonya {
      * @param string $exch
      * @return type
      */
-    public function getLTP(string $tysm, string $exch = 'NFO') {
+    public function getLTP(string $tysm, string $exch = 'BSE') {
         $ltp = $this->getQuotes($tysm, $exch);
         return $ltp->lp;
     }
@@ -333,7 +333,7 @@ class Shoonya {
     public function getQuotes(string $token, string $exchange = 'BSE') {
         if ($exchange == 'BSE') {
             $tkNum = parse_ini_file('scrip/bse.ini');
-            $token = $tkNum[$token];
+            $token = ctype_lower($token) ? $tkNum[$token] : $tkNum[strtolower($token)];
         }
         if ($exchange == 'NSE') {
             $tkNum = parse_ini_file('scrip/nse.ini');
@@ -421,10 +421,30 @@ class Shoonya {
     }
     
     /**
-     * @todo procduct position conversion
+     * Coverts a day or carry-forward position from one product to another.
+     * @param string $exch
+     * @param string $tsym
+     * @param int $qty
+     * @param string $newPrd
+     * @param string $prevPrd
+     * @param string $tranType
+     * @param string $posType
      */
-    public function positionProductConversion() {
+    public function positionProductConversion(string $exch,string $tsym, int $qty , string $newPrd, string $prevPrd, string $tranType, string $posType) {
+        $values = [
+            'ordersource' => 'API',
+            'uid' => $this->accountId,
+            'actid' => $this->accountId,
+            'exch' => $exch,
+            'tsym' => $tsym,
+            'qty' =>  "$qty",
+            'prd' => $newPrd,
+            'prevprd' => $prevPrd,
+            'trantype' => $tranType,
+            'postype' => $posType
+        ];
         
+        return $this->request('product_conversion', $values);
     }
 
     /**
@@ -544,8 +564,8 @@ class Shoonya {
      * @param string $orderNo
      * @return boolean
      */
-    public function getOrderStatus(string $orderNo) {
-        $orderHistory = $this->singleOrderHistory($orderNo);
+    public function getOrderStatus($orderNo) {
+        $orderHistory = $this->singleOrderHistory("$orderNo");
         if ($orderHistory->status == 'COMPLETE') {
             $this->orderBook[$orderNo]['status'] = 'C';
             $this->orderBook[$orderNo]['Qty'] = 1;
@@ -716,10 +736,10 @@ class Shoonya {
 
     /**
      * get current session tmp data
-     * @return type
+     * @return Object
      */
     public function getSessionData() {
-        return ['jKey' => $this->jKey, 'uid' => $this->uid, 'actid' => $this->accountId, 'uname' => $this->userName, $this->exarr, $this->brkname];
+        return (object)['jKey' => $this->jKey, 'uid' => $this->uid, 'actid' => $this->accountId, 'uname' => $this->userName, $this->exarr, $this->brkname];
     }
 
     /**
@@ -774,6 +794,28 @@ class Shoonya {
      */
     public function subscribeOrders() {
         $values = ['t' => 'o', 'actid' => $this->accountId];
+    }
+    
+    /**
+     * Set Alert
+     * @param string $tsym
+     * @param string $ait
+     * @param string $validity
+     * @param type $d price to compare with
+     * @param string $remarks
+     * @param string $exch
+     */
+    public function setAlert(string $tsym,string $ait, $d, string $validity='DAY', string $remarks=null, string $exch='BSE') {
+        $values = ['ordersource' => 'API',
+            'uid' => $this->uid,
+            'exch' => $exch,
+            'd' => "$d",
+            'validity' => $validity,
+            'tsym' => $tsym,
+            'remarks' => $remarks,
+            'ai_t' => $ait
+        ];
+        return $this->request('setalert', $values);
     }
     
     /**

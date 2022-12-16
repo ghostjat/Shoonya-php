@@ -20,8 +20,7 @@
 
     "autoload": {
         "psr-4": {
-            "Core\\": "src/",
-            "Core\\Api\\": "src/Api/"
+            "Core\\": "src/Core"
         }
     },
     "require": {
@@ -29,6 +28,7 @@
         "ratchet/pawl": "^0.4.1",
         "katzgrau/klogger": "^1.2.2",
         "spomky-labs/otphp": "^11.0",
+        "ghostjat/gtk": "dev-main",
         "php": ">=8.0"
     }
 }

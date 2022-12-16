@@ -9,7 +9,7 @@
 
 require_once 'vendor/autoload.php';
 
-use Core\Api\Shoonya;
+use Core\Shoonya;
 
 $api = new Shoonya();
 
