@@ -63,7 +63,7 @@ class Shoonya {
         'cancelalert' => '/CancelAlert',
         'modifyalert' => '/ModifyAlert',
         'getpendingalert' => '/GetPendingAlert',
-        'getenabledalerttypes' => '/GetEnabledAlertTypes'
+        'getenabledalert' => '/GetEnabledAlertTypes'
     ];
 
     public function __construct() {
@@ -797,13 +797,14 @@ class Shoonya {
     }
     
     /**
-     * Set Alert
+     *  Set Alert
      * @param string $tsym
      * @param string $ait
+     * @param type $d
      * @param string $validity
-     * @param type $d price to compare with
      * @param string $remarks
      * @param string $exch
+     * @return object
      */
     public function setAlert(string $tsym,string $ait, $d, string $validity='DAY', string $remarks=null, string $exch='BSE') {
         $values = ['ordersource' => 'API',
@@ -818,6 +819,44 @@ class Shoonya {
         return $this->request('setalert', $values);
     }
     
+    public function getEnabledAlert() {
+        $values = ['ordersource' => 'API',
+            'uid' => $this->uid
+        ];
+        
+        return $this->request('getenabledalert', $values);
+    }
+
+
+    public function getPendingAlert() {
+        $values = ['ordersource' => 'API',
+            'uid' => $this->uid
+        ];
+        
+        return $this->request('getpendingalert', $values);
+    }
+    
+    /**
+     * 
+     * @param  $alertID
+     */
+    public function modifyAlert($alertID) {
+        $values = ['ordersource' => 'API',
+            'uid' => $this->uid,
+            'ai_t' => $alertID
+        ];
+        return $this->request('modifyalert', $values);
+    }
+    
+    public function cancleAlert($alertID) {
+        $values = ['ordersource' => 'API',
+            'uid' => $this->uid,
+            'ai_t' => $alertID
+        ];
+        return $this->request('cancelalert', $values);
+    }
+
+
     /**
      * send telegram notification
      * @param string $msg
