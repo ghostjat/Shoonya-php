@@ -49,6 +49,7 @@ class Shoonya {
         'cancelgttorder' => '/CancelGTTOrder',
         'getpendinggtt' => '/GetPendingGTTOrder',
         'getenabledgtts' => '/GetEnabledGTTs',
+        'modifygtt' => '/ModifyGTTOrder',
         'tradebook' => '/TradeBook',
         'singleorderhistory' => '/SingleOrdHist',
         'searchscrip' => '/SearchScrip',
@@ -707,6 +708,54 @@ class Shoonya {
         }
         return false;
     }
+    
+    /**
+     *  Modify GTT or GTC orders
+     * @param string|int $gttID
+     * @param string $buy_or_sell
+     * @param string $productType
+     * @param string $exchange
+     * @param string $tradingSymbol
+     * @param float $priceToCompare
+     * @param int $quantity
+     * @param float $price
+     * @param string $ai_t
+     * @param string $retention
+     * @param string $remarks
+     * @param type $discloseQty
+     * @return boolean
+     */
+    public function modifyGtt(string|int $gttID,string $buy_or_sell, string $productType, string $exchange, string $tradingSymbol, float $priceToCompare,
+            int $quantity, float $price = 0, string $ai_t = self::AITG, string $retention = 'DAY', string $remarks = null, $discloseQty = null) {
+        if ($remarks == null) {
+            $remarks = "gtt for $tradingSymbol modify on " . (string) date('h:i:s');
+        }
+        $values = ['ordersource' => 'API',
+            'uid' => $this->uid,
+            'actid' => $this->accountId,
+            'trantype' => $buy_or_sell,
+            'prd' => $productType,
+            'exch' => $exchange,
+            'd' => (string) $priceToCompare,
+            'validity' => 'GTT',
+            'tsym' => $tradingSymbol,
+            'qty' => (string) $quantity,
+            'dscqty' => (string) $discloseQty,
+            'prctyp' => self::PriceLimit,
+            'prc' => (string) $price,
+            'ret' => $retention,
+            'remarks' => $remarks,
+            'validity' => 'GTT',
+            'ai_t' => $ai_t,
+            'al_id' => (string) $gttID
+        ];
+        $req = $this->request('modifygtt', $values);
+        $this->log($req, ['gtt order has been modified with OI :- ' . $req->al_id, 'failed to modify gtt order!']);
+        if ($req) {
+            return true;
+        }
+        return false;
+    }
 
     /**
      * to cancle placed gtt
@@ -848,7 +897,7 @@ class Shoonya {
         return $this->request('modifyalert', $values);
     }
     
-    public function cancleAlert($alertID) {
+    public function cancelAlert($alertID) {
         $values = ['ordersource' => 'API',
             'uid' => $this->uid,
             'ai_t' => $alertID

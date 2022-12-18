@@ -30,7 +30,7 @@ function getUpdate() {
         $ltp = $api->getLTP($data->exch_tsym[1]->tsym);
         $ival = $data->npoadqty*$data->upldprc;
         $cval = $ltp*$data->npoadqty;
-        $pl = $cval - $ival;
+        $pl = round($cval - $ival,2);
         $p[] = [$data->exch_tsym[1]->tsym, $data->npoadqty,
                 $ltp,$data->upldprc, $ival,$cval, $pl, round(($pl/$ival)*100, 2)];
         $tival[] = $ival;
