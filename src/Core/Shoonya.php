@@ -22,13 +22,16 @@ class Shoonya {
     public const FeedTouchLine = 't', FeedSnapQuoate = 'd';
     public const PriceMarket = 'MKT', PriceLimit = 'LMT', PrinceSLLmit = 'SL-LMT', PriceSLM = 'SL-MKT', DS = 'DS', L2 = '2L', L3 = '3L';
     public const Buy = 'B', Sell = 'S', AITG = 'LTP_A_O', AITL = 'LTP_B_O';
+    public const CIQ = 'lib/chartIQ/FCIQ/index.php?', TVC = 'lib/tvcl/?';
 
     public $tmp;
     protected $urls = [
         'host' => 'https://api.shoonya.com/',
         'ws_endpoint' => 'wss://api.shoonya.com/NorenWSTP',
         'endpoint' => 'https://api.shoonya.com/NorenWClientTP',
-        "eodhost" => 'https://api.shoonya.com/chartApi/getdata',
+        'eodhost' => 'https://api.shoonya.com/chartApi/getdata',
+        'webchart' => 'https://trade.shoonya.com/',
+        'localchart' => 'http://127.0.0.1:8080/'
     ];
     protected $routes = [
         'login' => '/QuickAuth',
@@ -68,13 +71,12 @@ class Shoonya {
     ];
 
     public function __construct() {
-        if($this->setTimeZone()) {
-        $this->cred = parse_ini_file('cred.ini');
-        $this->guzzle = new Client();
-        $this->logger = new Logger('log/');
-        }
-        else{
-            echo 'Failed to set time zone!' .PHP_EOL;
+        if ($this->setTimeZone()) {
+            $this->cred = parse_ini_file('cred.ini');
+            $this->guzzle = new Client();
+            $this->logger = new Logger('log/');
+        } else {
+            echo 'Failed to set time zone!' . PHP_EOL;
             exit();
         }
     }
@@ -84,8 +86,8 @@ class Shoonya {
      * @return bool
      */
     public function login(): bool {
-        $this->cred['pwd'] = hash('sha256', utf8_encode($this->cred['pwd']));
-        $this->cred['appkey'] = hash('sha256', utf8_encode($this->cred['uid'] . '|' . $this->cred['appkey']));
+        $this->cred['pwd'] = hash('sha256', iconv('ISO-8859-1', 'UTF-8', $this->cred['pwd']));
+        $this->cred['appkey'] = hash('sha256', iconv('ISO-8859-1', 'UTF-8', $this->cred['uid'] . '|' . $this->cred['appkey']));
         $totp = \OTPHP\TOTP::create($this->cred['totp']);
         $this->cred['factor2'] = $totp->now();
         $req = $this->request('login', $this->cred, false);
@@ -113,18 +115,15 @@ class Shoonya {
     }
 
     /**
-     * to reset the password
-     * @param string $uid
-     * @param string $pan
-     * @param string $dob
+     * to reset the password or to unblock
      * @return bool
      */
-    public function forgotPassword(string $uid, string $pan, string $dob): bool {
+    public function forgotPassword(): bool {
         $values = [
             'source' => 'API',
-            'uid' => $uid,
-            'pan' => $pan,
-            'dob' => $dob
+            'uid' => $this->cred['uid'],
+            'pan' => $this->cred['pan'],
+            'dob' => $this->cred['dob']
         ];
         $req = $this->request('forgot_password', $values, false);
         return $this->log($req, ['Password Changed Successfully', 'Could not changed password!']);
@@ -202,7 +201,7 @@ class Shoonya {
      * @return array
      */
     public function searchScrip(string $searchtext, string $exchange = 'BSE'): array {
-        
+
         $values = [
             'uid' => $this->uid,
             'exch' => $exchange,
@@ -266,7 +265,7 @@ class Shoonya {
      * @param string $exch
      * @return array
      */
-    public function getOptionChain(string $tsym, int $strprc, int $count = 5, string $exch = 'NFO'):array {
+    public function getOptionChain(string $tsym, int $strprc, int $count = 5, string $exch = 'NFO'): array {
         $values = [
             'uid' => $this->uid,
             'exch' => $exch,
@@ -278,11 +277,11 @@ class Shoonya {
         foreach ($oc->values as $key => $ocData) {
             if ($ocData->optt == 'CE') {
                 $quotes = $this->getQuotes($ocData->token, 'NFO');
-                $ceData[$ocData->strprc] = ['CE', $ocData->token, $ocData->tsym,$quotes->lp,$quotes->oi,$ocData->strprc];
+                $ceData[$ocData->strprc] = ['CE', $ocData->token, $ocData->tsym, $quotes->lp, $quotes->oi, $ocData->strprc];
             }
             if ($ocData->optt == 'PE') {
                 $quotes = $this->getQuotes($ocData->token, 'NFO');
-                $peData[$ocData->strprc] = [$quotes->oi,$quotes->lp,$ocData->tsym, $ocData->token,'PE'];
+                $peData[$ocData->strprc] = [$quotes->oi, $quotes->lp, $ocData->tsym, $ocData->token, 'PE'];
             }
         }
 
@@ -290,14 +289,14 @@ class Shoonya {
         ksort($data);
         return $data;
     }
-    
+
     /**
      * get scrip exchange token based on local database
      * @param string $scrip
      * @param string $exch
      * @return type
      */
-    public function getScripToken(string $scrip,string $exch = 'BSE') {
+    public function getScripToken(string $scrip, string $exch = 'BSE') {
         if ($exch == 'BSE') {
             $tkNum = parse_ini_file('scrip/bse.ini');
             $token = $tkNum[$scrip];
@@ -308,7 +307,6 @@ class Shoonya {
         }
         return $token;
     }
-    
 
     /**
      * get scrip info 
@@ -316,7 +314,7 @@ class Shoonya {
      * @param string $exch
      */
     public function getScripInfo(string $token, string $exch = 'BSE') {
-        $tkNum = $this->getScripToken($token,$exch);
+        $tkNum = $this->getScripToken($token, $exch);
         $values = [
             'uid' => $this->uid,
             'exch' => $exch,
@@ -338,7 +336,7 @@ class Shoonya {
         }
         if ($exchange == 'NSE') {
             $tkNum = parse_ini_file('scrip/nse.ini');
-            $token = $tkNum[$token];
+            $token = ctype_lower($token) ? $tkNum[$token] : $tkNum[strtolower($token)];
         }
 
         $values = [
@@ -371,21 +369,20 @@ class Shoonya {
             'exch' => $exch,
             'token' => $tkNum[$token]
         ];
-        
-         if (is_null($startTime)) {
+
+        if (is_null($startTime)) {
             $values['st'] = (string) strtotime(date('d-m-Y h:i:s'));
         } else {
             $values['st'] = (string) strtotime($startTime);
         }
         if (is_null($endTime)) {
-            $values['et'] = (string) strtotime(date('d-m-Y h:i:s')); 
-        }
-        else {
+            $values['et'] = (string) strtotime(date('d-m-Y h:i:s'));
+        } else {
             $values['et'] = (string) strtotime($endTime);
         }
-        
+
         $values['intrv'] = (string) $interval;
-        
+
         return $this->request('TPSeries', $values);
     }
 
@@ -398,13 +395,13 @@ class Shoonya {
      * @return type
      */
     public function getDailyPriceSeries(string $tysm, string $startDate, string $endDate = null, string $exch = 'NSE') {
-      
+
         if (is_null($endDate)) {
             $et = (string) strtotime(date('d-m-Y 15:30:00'));
         } else {
             $et = strtotime($endDate);
         }
-        $st =  strtotime($startDate);
+        $st = strtotime($startDate);
 
         $values = [
             'ordersource' => 'API',
@@ -413,14 +410,14 @@ class Shoonya {
             'from' => $st,
             'to' => $et
         ];
-        
-         $request = $this->guzzle->post($this->urls['eodhost'], [
-          'header' => ['Content-Type' => 'application/json'],
+
+        $request = $this->guzzle->post($this->urls['eodhost'], [
+            'header' => ['Content-Type' => 'application/json'],
             'body' => json_encode($values)
         ]);
         return $this->decode($request->getBody());
     }
-    
+
     /**
      * Coverts a day or carry-forward position from one product to another.
      * @param string $exch
@@ -431,20 +428,20 @@ class Shoonya {
      * @param string $tranType
      * @param string $posType
      */
-    public function positionProductConversion(string $exch,string $tsym, int $qty , string $newPrd, string $prevPrd, string $tranType, string $posType) {
+    public function positionProductConversion(string $exch, string $tsym, int $qty, string $newPrd, string $prevPrd, string $tranType, string $posType) {
         $values = [
             'ordersource' => 'API',
             'uid' => $this->accountId,
             'actid' => $this->accountId,
             'exch' => $exch,
             'tsym' => $tsym,
-            'qty' =>  "$qty",
+            'qty' => "$qty",
             'prd' => $newPrd,
             'prevprd' => $prevPrd,
             'trantype' => $tranType,
             'postype' => $posType
         ];
-        
+
         return $this->request('product_conversion', $values);
     }
 
@@ -708,7 +705,7 @@ class Shoonya {
         }
         return false;
     }
-    
+
     /**
      *  Modify GTT or GTC orders
      * @param string|int $gttID
@@ -725,7 +722,7 @@ class Shoonya {
      * @param type $discloseQty
      * @return boolean
      */
-    public function modifyGtt(string|int $gttID,string $buy_or_sell, string $productType, string $exchange, string $tradingSymbol, float $priceToCompare,
+    public function modifyGtt(string|int $gttID, string $buy_or_sell, string $productType, string $exchange, string $tradingSymbol, float $priceToCompare,
             int $quantity, float $price = 0, string $ai_t = self::AITG, string $retention = 'DAY', string $remarks = null, $discloseQty = null) {
         if ($remarks == null) {
             $remarks = "gtt for $tradingSymbol modify on " . (string) date('h:i:s');
@@ -788,14 +785,13 @@ class Shoonya {
      * @return Object
      */
     public function getSessionData() {
-        return (object)['jKey' => $this->jKey, 'uid' => $this->uid, 'actid' => $this->accountId, 'uname' => $this->userName, $this->exarr, $this->brkname];
+        return (object) ['jKey' => $this->jKey, 'uid' => $this->uid, 'actid' => $this->accountId, 'uname' => $this->userName, $this->exarr, $this->brkname];
     }
 
     /**
      * ws related  functions
      * 
      */
-    
     public function connectWS() {
         $value = [
             't' => 'c',
@@ -806,7 +802,7 @@ class Shoonya {
         $this->wsC = new \WSSC\WebSocketClient($this->urls['ws_endpoint'], new \WSSC\Components\ClientConfig());
         $this->wsC->send(json_encode($value));
         print_r($this->wsC->receive());
-        if($this->wsC->isConnected()) {
+        if ($this->wsC->isConnected()) {
             return true;
         }
         echo 'Failed to connect to WSS' . PHP_EOL;
@@ -844,7 +840,7 @@ class Shoonya {
     public function subscribeOrders() {
         $values = ['t' => 'o', 'actid' => $this->accountId];
     }
-    
+
     /**
      *  Set Alert
      * @param string $tsym
@@ -853,9 +849,9 @@ class Shoonya {
      * @param string $validity
      * @param string $remarks
      * @param string $exch
-     * @return object
+     * @return type
      */
-    public function setAlert(string $tsym,string $ait, $d, string $validity='DAY', string $remarks=null, string $exch='BSE') {
+    public function setAlert(string $tsym, string $ait, $d, string $validity = 'DAY', string $remarks = null, string $exch = 'BSE') {
         $values = ['ordersource' => 'API',
             'uid' => $this->uid,
             'exch' => $exch,
@@ -867,24 +863,23 @@ class Shoonya {
         ];
         return $this->request('setalert', $values);
     }
-    
+
     public function getEnabledAlert() {
         $values = ['ordersource' => 'API',
             'uid' => $this->uid
         ];
-        
+
         return $this->request('getenabledalert', $values);
     }
-
 
     public function getPendingAlert() {
         $values = ['ordersource' => 'API',
             'uid' => $this->uid
         ];
-        
+
         return $this->request('getpendingalert', $values);
     }
-    
+
     /**
      * 
      * @param  $alertID
@@ -896,7 +891,7 @@ class Shoonya {
         ];
         return $this->request('modifyalert', $values);
     }
-    
+
     public function cancelAlert($alertID) {
         $values = ['ordersource' => 'API',
             'uid' => $this->uid,
@@ -905,30 +900,47 @@ class Shoonya {
         return $this->request('cancelalert', $values);
     }
 
-
     /**
      * send telegram notification
      * @param string $msg
      * @return bool
      */
-    public function telegram(string $msg):bool {
-        $data = ['chat_id' => $this->cred['ci'],'text'=>$msg];
+    public function telegram(string $msg): bool {
+        $data = ['chat_id' => $this->cred['ci'], 'text' => $msg];
         $send = $this->decode(file_get_contents("https://api.telegram.org/bot{$this->cred['at']}/sendMessage?" . http_build_query($data)));
-        if($send->ok == 'true') {
+        if ($send->ok == 'true') {
             echo 'Telegram notification has been sent to ' . $this->cred['ci'] . ' @ ' . date('h:i:m') . PHP_EOL;
             return true;
         }
         return false;
     }
-    
+
+    /**
+     * Load web chart TradingView/ChartIQ 
+     * @param string $tsym
+     * @param string $exch NSE|BSE|NFO|CDF|MCX
+     * @param string $chartType TVC/CIQ
+     * @return string
+     */
+    public function loadChart(string $tsym = 'nifty 50', string $exch = 'NSE', string $chartType = self::CIQ) {
+        if ($exch == 'BSE') {
+            $encode = base64_encode('user=' . $this->uid . '&token=' . $this->jKey . "&exch_tsym=BSE:$tsym:$tsym&p=Web");
+        }
+        if ($exch == 'NSE') {
+            ($tsym == 'NIFTY50' || $tsym == 'nifty50') ? $tsym = 'NIFTY_50' : $tsym . '-EQ';
+            $encode = base64_encode('user=' . $this->uid . '&token=' . $this->jKey . "&exch_tsym=NSE:$tsym:$tsym&p=Web");
+        }
+        return $this->urls['localchart'] . $chartType . $encode;
+    }
+
     /**
      * to compare two times if t1 < t2 return true else return false
      * @param string $t1
      * @param string $t2
      * @return bool
      */
-    public function timeComperison(string $t1,string $t2):bool {
-        if(strtotime(date($t1)) < strtotime($t2)) {
+    public function timeComperison(string $t1, string $t2): bool {
+        if (strtotime(date($t1)) < strtotime($t2)) {
             return true;
         }
         return false;
@@ -952,6 +964,7 @@ class Shoonya {
         $this->exarr = $data->exarr;
         $this->brkname = $data->brkname;
         $this->email = $data->email;
+        $this->sessionJson();
     }
 
     /**
@@ -968,7 +981,7 @@ class Shoonya {
         $this->logger->notice("User {$this->cred['uid']} " . $msg[1]);
         return false;
     }
-    
+
     protected function decode($jsonData) {
         return json_decode($jsonData);
     }
@@ -997,13 +1010,18 @@ class Shoonya {
     protected function jKey() {
         return '&jKey=' . $this->jKey;
     }
-    
+
     /**
      * 
      * @param string $timezone
      * @return bool
      */
-    private function setTimeZone(string $timezone = 'Asia/Kolkata'):bool {
+    private function setTimeZone(string $timezone = 'Asia/Kolkata'): bool {
         return date_default_timezone_set($timezone);
     }
+
+    private function sessionJson() {
+        return file_put_contents('session.json', json_encode($this->getSessionData(), JSON_PRETTY_PRINT));
+    }
+
 }
