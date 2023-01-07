@@ -22,16 +22,14 @@ class Shoonya {
     public const FeedTouchLine = 't', FeedSnapQuoate = 'd';
     public const PriceMarket = 'MKT', PriceLimit = 'LMT', PrinceSLLmit = 'SL-LMT', PriceSLM = 'SL-MKT', DS = 'DS', L2 = '2L', L3 = '3L';
     public const Buy = 'B', Sell = 'S', AITG = 'LTP_A_O', AITL = 'LTP_B_O';
-    public const CIQ = 'lib/chartIQ/FCIQ/index.php?', TVC = 'lib/tvcl/?';
-
+    public const CIQ = 'lib/chartIQ/FCIQ/index.php?', TVC = 'NorenCharts/?';
     public $tmp;
     protected $urls = [
         'host' => 'https://api.shoonya.com/',
         'ws_endpoint' => 'wss://api.shoonya.com/NorenWSTP',
         'endpoint' => 'https://api.shoonya.com/NorenWClientTP',
-        'eodhost' => 'https://api.shoonya.com/chartApi/getdata',
-        'webchart' => 'https://trade.shoonya.com/',
-        'localchart' => 'http://127.0.0.1:8080/'
+        'webchart' =>'https://trade.shoonya.com/',
+        'localchart' =>'http://127.0.0.1:8080/'
     ];
     protected $routes = [
         'login' => '/QuickAuth',
@@ -67,7 +65,10 @@ class Shoonya {
         'cancelalert' => '/CancelAlert',
         'modifyalert' => '/ModifyAlert',
         'getpendingalert' => '/GetPendingAlert',
-        'getenabledalert' => '/GetEnabledAlertTypes'
+        'getenabledalert' => '/GetEnabledAlertTypes',
+        'spanCalculator' =>'/SpanCalc',
+        'optionGreek' =>'/GetOptionGreek',
+        'DPSeries' =>'/EODChartData'
     ];
 
     public function __construct() {
@@ -411,11 +412,7 @@ class Shoonya {
             'to' => $et
         ];
 
-        $request = $this->guzzle->post($this->urls['eodhost'], [
-            'header' => ['Content-Type' => 'application/json'],
-            'body' => json_encode($values)
-        ]);
-        return $this->decode($request->getBody());
+         return $this->request('DPSeries', $values);
     }
 
     /**
@@ -799,17 +796,15 @@ class Shoonya {
             'actid' => $this->accountId,
             'ordersource' => 'API',
             'susertoken' => $this->jKey];
-        $this->wsC = new \WSSC\WebSocketClient($this->urls['ws_endpoint'], new \WSSC\Components\ClientConfig());
-        $this->wsC->send(json_encode($value));
-        print_r($this->wsC->receive());
-        if ($this->wsC->isConnected()) {
-            return true;
+        return json_encode($value);
         }
-        echo 'Failed to connect to WSS' . PHP_EOL;
-        return false;
-    }
 
-    public function subscribe(array|string $intst, $feedType = self::FeedTouchLine) {
+    /**
+     * Subscribe to quotes feeds (websocket) 
+     * @param array|string $intst
+     * @param type $feedType
+     */
+    public function subscribeFeed(array|string $intst, $feedType = self::FeedTouchLine) {
         $values = [];
         $values['t'] = $feedType;
         if (is_array($intst)) {
@@ -817,9 +812,15 @@ class Shoonya {
         } else {
             $values['k'] = $intst;
         }
+        return json_encode($values);
     }
 
-    public function unsubscribe(array|string $intst, $feedType = self::FeedTouchLine) {
+    /**
+     * Unsubscribe to quotes feed(websocket)
+     * @param array|string $intst
+     * @param type $feedType
+     */
+    public function unsubscribeFeed(array|string $intst, $feedType = self::FeedTouchLine) {
         $values = [];
         if ($feedType == self::FeedTouchLine) {
             $values['t'] = 'u';
@@ -835,12 +836,20 @@ class Shoonya {
     }
 
     /**
-     * @todo 
+     * subscribe to orders feed (websocket)
+     * @return type
      */
-    public function subscribeOrders() {
-        $values = ['t' => 'o', 'actid' => $this->accountId];
+    public function subscribeOrdersFeed() {
+        return json_encode(['t' => 'o', 'actid' => $this->accountId]);
     }
 
+    /**
+     * unsubscribe orders feed(websocket)
+     */
+    public function unSubscibeOrdersFeed() {
+        return json_encode(['t'=>'uo','t'=>'uok']);
+    }
+    
     /**
      *  Set Alert
      * @param string $tsym
@@ -930,7 +939,7 @@ class Shoonya {
             ($tsym == 'NIFTY50' || $tsym == 'nifty50') ? $tsym = 'NIFTY_50' : $tsym . '-EQ';
             $encode = base64_encode('user=' . $this->uid . '&token=' . $this->jKey . "&exch_tsym=NSE:$tsym:$tsym&p=Web");
         }
-        return $this->urls['localchart'] . $chartType . $encode;
+        return ($chartType == self::TVC) ? $this->urls['webchart'].$chartType.$encode:$this->urls['localchart'].$chartType.$encode;  
     }
 
     /**
@@ -1024,4 +1033,7 @@ class Shoonya {
         return file_put_contents('session.json', json_encode($this->getSessionData(), JSON_PRETTY_PRINT));
     }
 
+    public function __destruct() {
+        $this->logout();
+    }
 }
